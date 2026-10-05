@@ -17,6 +17,7 @@ const TEST_SCRIPTS := [
 	"res://tests/unit/test_cond_eval.gd",
 	"res://tests/unit/test_save.gd",
 	"res://tests/unit/test_font.gd",
+	"res://tests/unit/test_cast.gd",
 	"res://tests/unit/test_beat_runner.gd",
 	"res://tests/unit/test_vn_screen.gd",
 ]
