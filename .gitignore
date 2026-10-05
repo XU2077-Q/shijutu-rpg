@@ -24,3 +24,7 @@ desktop.ini
 
 # 系统生成的
 .DS_Store
+
+# 我的临时试验场，随手画的对照图。绝不入库。
+_scratch/
+tools/_qa/
