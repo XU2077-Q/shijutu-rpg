@@ -1,0 +1,41 @@
+{
+  "_comment": "扩写条目锚点表。手工登记，来源是读本附录二「扩写条目对照表」。",
+  "_why": "读本正文里的扩写段落可以脚本抽取（tools/docx.js），但「这条插到哪」是语义信息，抽不出来，只能登记。31 条，一次性。",
+  "_run_note": "run 是扩写在**读本正文里的出现次序**（1..31），不是附录二的编号 —— 两者在第 5~8 条上不一致：附录二把「国中之国」编为 8，但它实际出现在第 5 位。正文次序才是文字真正的落点，所以 run 是主键，no 只作对照。",
+  "_at_note": "at = after/before 指相对锚点场景的位置。replace 只有第 14 条，语义是**就地续写场景里的某一拍**，不是替换整个场景 —— 附录二那句「整段替换 c3_s4a」按字面读会把 24 拍全顶掉，显然不对。真实定位规则由导出器机械执行：锚点场景里，被扩写首段以其原文起句的那一拍（实测全书 2200 个散文节拍中只有这一拍在读本的非扩写正文里找不到，正是它）。导出器把结果写进 story.json 的 scenes.<id>.supersede，**原文节拍照旧保留不动**。",
+
+  "expansions": [
+    { "run":  1, "no":  1, "chapter": "序章",   "kind": "背景",   "title": "信息的速度 · 宣南",   "anchor": "p_intro",     "at": "after"  },
+    { "run":  2, "no":  2, "chapter": "序章",   "kind": "小人物", "title": "茶楼跑堂顺子",         "anchor": "p_tea",       "at": "after"  },
+    { "run":  3, "no":  3, "chapter": "序章",   "kind": "小人物", "title": "守门的兵赵得胜",       "anchor": "p_gongche",   "at": "after"  },
+    { "run":  4, "no":  4, "chapter": "序章",   "kind": "背景",   "title": "换约",                 "anchor": "p_gongche",   "at": "after"  },
+    { "run":  5, "no":  8, "chapter": "第一章", "kind": "背景",   "title": "国中之国",             "anchor": "c1_shanghai", "at": "before" },
+    { "run":  6, "no":  5, "chapter": "第一章", "kind": "感情线", "title": "一行日记",             "anchor": "c1_shanghai", "at": "after"  },
+    { "run":  7, "no":  6, "chapter": "第一章", "kind": "背景",   "title": "湘军故里",             "anchor": "c1_home",     "at": "after"  },
+    { "run":  8, "no":  7, "chapter": "第一章", "kind": "背景",   "title": "义学与识字",           "anchor": "c1_village",  "at": "before" },
+    { "run":  9, "no":  9, "chapter": "第一章", "kind": "感情线", "title": "她读到了他的文章",     "anchor": "c1_end",      "at": "before" },
+
+    { "run": 10, "no": 10, "chapter": "第二章", "kind": "小人物", "title": "报童小满",             "anchor": "c2_1",        "at": "before" },
+    { "run": 11, "no": 11, "chapter": "第二章", "kind": "背景",   "title": "女学堂",               "anchor": "c2_2",        "at": "after"  },
+    { "run": 12, "no": 12, "chapter": "第二章", "kind": "小人物", "title": "菱湖茧行",             "anchor": "c2_3",        "at": "after"  },
+    { "run": 13, "no": 13, "chapter": "第三章", "kind": "背景",   "title": "石印",                 "anchor": "c3_s3",       "at": "after"  },
+    { "run": 14, "no": 14, "chapter": "第三章", "kind": "小人物", "title": "塾师柳先生",           "anchor": "c3_s4a",      "at": "replace" },
+    { "run": 15, "no": 15, "chapter": "第三章", "kind": "小人物", "title": "豆腐老倌",             "anchor": "c3_s4a",      "at": "after"  },
+    { "run": 16, "no": 16, "chapter": "第三章", "kind": "感情线", "title": "报角批注",             "anchor": "c3_merge",    "at": "before" },
+    { "run": 17, "no": 17, "chapter": "第四章", "kind": "背景",   "title": "一百零三天",           "anchor": "c4_1",        "at": "before" },
+    { "run": 18, "no": 18, "chapter": "第四章", "kind": "背景",   "title": "狱中题壁",             "anchor": "c4_1",        "at": "after"  },
+    { "run": 19, "no": 19, "chapter": "第四章", "kind": "背景",   "title": "台湾十年",             "anchor": "c4_1",        "at": "before" },
+    { "run": 20, "no": 20, "chapter": "第四章", "kind": "主角线", "title": "云林道上",             "anchor": "c4_tw1",      "at": "after"  },
+    { "run": 21, "no": 21, "chapter": "第四章", "kind": "主角线", "title": "永清第一课",           "anchor": "c4_tw1",      "at": "after"  },
+    { "run": 22, "no": 22, "chapter": "第五章", "kind": "感情线", "title": "页边的抄录",           "anchor": "c5_6",        "at": "after"  },
+    { "run": 23, "no": 23, "chapter": "第五章", "kind": "感情线", "title": "镯子与当票",           "anchor": "c5_6",        "at": "before" },
+    { "run": 24, "no": 24, "chapter": "第五章", "kind": "小人物", "title": "台阶边的水桶",         "anchor": "c5_a",        "at": "after"  },
+    { "run": 25, "no": 25, "chapter": "第五章", "kind": "小人物", "title": "阿巧报名",             "anchor": "c5_a",        "at": "after"  },
+    { "run": 26, "no": 26, "chapter": "第五章", "kind": "感情线", "title": "婚礼与四样东西",       "anchor": "c5_a",        "at": "before" },
+    { "run": 27, "no": 27, "chapter": "第五章", "kind": "小人物", "title": "排字工小满",           "anchor": "c5_a",        "at": "before" },
+    { "run": 28, "no": 28, "chapter": "第五章", "kind": "感情线", "title": "一棵桂树苗",           "anchor": "c5_a",        "at": "after"  },
+    { "run": 29, "no": 29, "chapter": "第五章", "kind": "感情线", "title": "替他敲三下门",         "anchor": "c5_b",        "at": "before" },
+    { "run": 30, "no": 30, "chapter": "第五章", "kind": "主角线", "title": "玻璃板下的图",         "anchor": "c5_c",        "at": "before" },
+    { "run": 31, "no": 31, "chapter": "第五章", "kind": "感情线", "title": "账房里的《时局图》",   "anchor": "c5_d",        "at": "after"  }
+  ]
+}

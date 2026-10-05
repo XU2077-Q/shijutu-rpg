@@ -1,0 +1,26 @@
+# Godot 的导入缓存与编辑器状态。体积大、可重建，不进版本库。
+.godot/
+*.translation
+
+# 导出产物
+build/
+export/
+*.exe
+*.apk
+*.aab
+*.pck
+
+# 方舟 API Key 之类的凭据。**绝不入库。**
+# 生成美术时设成环境变量 ARK_API_KEY，或写在这里被忽略的 .env 里。
+.env
+.env.*
+!.env.example
+
+# 临时文件
+*.tmp
+*.log
+Thumbs.db
+desktop.ini
+
+# 系统生成的
+.DS_Store
