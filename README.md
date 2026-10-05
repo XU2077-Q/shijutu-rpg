@@ -11,6 +11,15 @@
 
 ---
 
+## 🔗 在线试玩
+
+**https://xu2077-q.github.io/shijutu-rpg/**
+
+浏览器直接玩，零安装。当前是垂直切片（序章 + 第一章）的纯 VN 演示；
+首次加载需下载约 80 MB 的引擎与剧本数据，视网速等十几秒到几十秒。
+
+---
+
 ## 三条硬约束
 
 1. **网页版 `index.html` 一个字都不能改。** 它是只读数据源。
@@ -104,8 +113,8 @@ tests/      极简测试跑架 + unit/
 ## 进度
 
 - [x] **里程碑 1** 导出器 + `data/*.json` + Node 断言 + Godot 数据测试
-- [ ] 里程碑 2 `CondEval` / `GameState` / `SaveManager` + 单测 ← **已完成，待并入**
-- [ ] 里程碑 3 `BeatRunner` + 对话框 / 选项 / 书信 / 引文 / 章节卡 → 切片当纯 VN 跑通 → 导 Web 挂 Pages
+- [x] 里程碑 2 `CondEval` / `GameState` / `SaveManager` + 单测
+- [x] 里程碑 3 `BeatRunner` + 对话框 / 选项 / 书信 / 引文 / 章节卡 → 切片当纯 VN 跑通 → 导 Web 挂 Pages（已上线，见「在线试玩」）
 - [ ] 里程碑 4 `Room` + `Player` + 行走遮罩 → 导航 + 交互物
 - [ ] 里程碑 5 `story_map` 路由 + 12 个房间的背景 / 遮罩 / NPC 摆位
 - [ ] 里程碑 6 时局图 / 史实注 / 任务栏 / 暂停菜单
