@@ -1,0 +1,402 @@
+{
+  "_说明": [
+    "行走图的颜色网格。每行一个字符串，一个字符一个像素，'.' 是透明。",
+    "网格 24×32：上 26 行是身体（body），下 6 行是腿/下摆（legs），腿有三组 = 三帧。",
+    "只画 down / up / left 三个方向，right 由 left 镜像得到 —— 省一半手工，也保证左右一致。",
+    "跑 node tools/gen_sprites.js --check 校验；跑 node tools/gen_sprites.js 出图。",
+    "",
+    "改网格时注意：行宽必须正好 24，行数必须正好 26 / 6。数错了脚本会当场报错，",
+    "别靠肉眼数 —— 我数错过好几次。"
+  ],
+
+  "grid": { "w": 24, "h": 32, "body_h": 26 },
+  "scale": 4,
+
+  "characters": {
+    "shen": {
+      "name": "沈怀瑾",
+      "palette": {
+        ".": "#00000000",
+        "K": "#141118",
+        "H": "#1e1a22",
+        "S": "#e6c69c",
+        "D": "#c69f74",
+        "E": "#20181a",
+        "M": "#8f4a42",
+        "W": "#e9e4d8",
+        "R": "#3d4c66",
+        "r": "#2b374b",
+        "L": "#55688a",
+        "B": "#7c2f28",
+        "P": "#241f1c",
+        "Q": "#2a231e"
+      },
+      "dirs": {
+        "down": {
+          "body": [
+            "........................",
+            "........KKKKKKKK........",
+            ".......KHHHHHHHHK.......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHSSSSSSSSHK......",
+            "......KHSSSSSSSSHK......",
+            "......KHSEESSEESHK......",
+            "......KHSEESSEESHK......",
+            "......KHSSSSSSSSHK......",
+            "......KHSDSSSSDSHK......",
+            ".......KSSSMMSSSK.......",
+            "........KSSSSSSK........",
+            "........KWWWWWWK........",
+            ".......KRRWWWWRRK.......",
+            "......KrrRRRRRRrrK......",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrLRRRRRRRRLrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrrBBBBBBBBrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            "......KrrRRRRRRrrK......",
+            "......KRrRRRRRRrRK......",
+            "......KrrRRRRRRrrK......",
+            "......KrrRRRRRRrrK......"
+          ],
+          "legs": [
+            [
+              ".....KrrRRRRRRRRrrK.....",
+              "....KRRRRRRRRRRRRRRK....",
+              "...KRRRRRRRRRRRRRRRRK...",
+              "...KRRRRRRRRRRRRRRRRK...",
+              "...KPPPPPP....PPPPPPK...",
+              "....KKKKKK....KKKKKK...."
+            ],
+            [
+              "......KrrRRRRRRrrK......",
+              ".....KrrRRRRRRRRrrK.....",
+              "....KRRRRRRRRRRRRRRK....",
+              "....KRRRRRRRRRRRRRRK....",
+              ".....KPPPPP..PPPPPK.....",
+              "......KKKKK..KKKKK......"
+            ],
+            [
+              ".....KrrRRRRRRRRrrK.....",
+              "....KRRRRRRRRRRRRRRK....",
+              "...KRRRRRRRRRRRRRRRRK...",
+              "..KRRRRRRRRRRRRRRRRRRK..",
+              "..KPPPPP........PPPPPK..",
+              "..KKKKKK........KKKKKK.."
+            ]
+          ]
+        },
+
+        "up": {
+          "body": [
+            "........................",
+            "........KKKKKKKK........",
+            ".......KHHHHHHHHK.......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            ".......KHHHHHHHHK.......",
+            "........KHHHHHHK........",
+            "........KQQQQQQK........",
+            ".......KRQQQQQQRK.......",
+            "......KRRRQQQQRRRK......",
+            ".....KrrRRRQQRRRrrK.....",
+            ".....KrLRRRQQRRRLrK.....",
+            ".....KrrRRRBBRRRrrK.....",
+            ".....KrrBBBBBBBBrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            "......KrrRRRRRRrrK......",
+            "......KRrRRRRRRrRK......",
+            "......KrrRRRRRRrrK......",
+            "......KrrRRRRRRrrK......"
+          ],
+          "legs": [
+            [
+              ".....KrrRRRRRRRRrrK.....",
+              "....KRRRRRRRRRRRRRRK....",
+              "...KRRRRRRRRRRRRRRRRK...",
+              "...KRRRRRRRRRRRRRRRRK...",
+              "...KPPPPPP....PPPPPPK...",
+              "....KKKKKK....KKKKKK...."
+            ],
+            [
+              "......KrrRRRRRRrrK......",
+              ".....KrrRRRRRRRRrrK.....",
+              "....KRRRRRRRRRRRRRRK....",
+              "....KRRRRRRRRRRRRRRK....",
+              ".....KPPPPP..PPPPPK.....",
+              "......KKKKK..KKKKK......"
+            ],
+            [
+              ".....KrrRRRRRRRRrrK.....",
+              "....KRRRRRRRRRRRRRRK....",
+              "...KRRRRRRRRRRRRRRRRK...",
+              "..KRRRRRRRRRRRRRRRRRRK..",
+              "..KPPPPP........PPPPPK..",
+              "..KKKKKK........KKKKKK.."
+            ]
+          ]
+        },
+
+        "left": {
+          "body": [
+            "........................",
+            ".......KKKKKKKK.........",
+            "......KHHHHHHHHK........",
+            ".....KHHHHHHHHHHK.......",
+            ".....KHHHHHHHHHHK.......",
+            ".....KHHSSSSSSHHK.......",
+            ".....KHSSSSSSSHHK.......",
+            ".....KHSSEESSSHHK.......",
+            ".....KHSSEESSSHHK.......",
+            ".....KHSSSSSSSHHK.......",
+            ".....KHSSSSSSSHHK.......",
+            "......KSSSSSSHQQ........",
+            "......KSSSSSKQQQ........",
+            ".......KSSSKQQQ.........",
+            ".......KWWWKQQQ.........",
+            "......KRRRRRKQQ.........",
+            ".....KRRRRRRRKQ.........",
+            "....KRRRRRRRRRK.........",
+            "....KRLRRRRRRRK.........",
+            "....KRRRBBBBBRK.........",
+            "....KRRRRRRRRRK.........",
+            "....KRRRRRRRRRK.........",
+            "....KRRRRRRRRRK.........",
+            ".....KRRRRRRRK..........",
+            ".....KRrRRRRRK..........",
+            ".....KRRRRRRRK.........."
+          ],
+          "legs": [
+            [
+              ".....KRRRRRRRK..........",
+              ".....KRRRRRRRK..........",
+              "....KRRRRRRRRRK.........",
+              "....KRRRRRRRRRK.........",
+              "..KPPPPPPPPPPK..........",
+              "..KKKKKKKKKKKK.........."
+            ],
+            [
+              "......KRRRRRK...........",
+              "......KRRRRRK...........",
+              ".....KRRRRRRRK..........",
+              ".....KRRRRRRRK..........",
+              "....KPPPPPPPPK..........",
+              "....KKKKKKKKKK.........."
+            ],
+            [
+              ".....KRRRRRRRK..........",
+              "....KRRRRRRRRRK.........",
+              "...KRRRRRRRRRRRK........",
+              "..KRRRRR..RRRRRK........",
+              ".KPPPPP....PPPPPK.......",
+              ".KKKKKK....KKKKKK......."
+            ]
+          ]
+        }
+      }
+    },
+
+    "lin": {
+      "name": "林婉如",
+      "palette": {
+        ".": "#00000000",
+        "K": "#17131a",
+        "H": "#211c26",
+        "S": "#efd3ad",
+        "D": "#d0ac83",
+        "E": "#241a1c",
+        "M": "#a8524a",
+        "W": "#f0ebe0",
+        "R": "#b08ca0",
+        "r": "#8d6b80",
+        "L": "#c9a8b8",
+        "B": "#7c2f28",
+        "P": "#2a2320",
+        "G": "#7d5f70",
+        "g": "#63495a",
+        "Q": "#211c26"
+      },
+      "dirs": {
+        "down": {
+          "body": [
+            "........................",
+            ".........KKKKKK.........",
+            "........KHHHHHHK........",
+            ".......KHHHHHHHHK.......",
+            "......KHHHHHHHHHHK......",
+            "......KHSSSSSSSSHK......",
+            "......KHSSSSSSSSHK......",
+            "......KHSEESSEESHK......",
+            "......KHSEESSEESHK......",
+            "......KHSSSSSSSSHK......",
+            "......KHSDSSSSDSHK......",
+            ".......KSSSMMSSSK.......",
+            "........KSSSSSSK........",
+            "........KWWWWWWK........",
+            ".......KRRWWWWRRK.......",
+            "......KrrRRRRRRrrK......",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrLRRRRRRRRLrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrrBBBBBBBBrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            "......KGGGGGGGGGGK......",
+            "......KGgGGGGGGgGK......",
+            ".....KGGGGGGGGGGGGK.....",
+            ".....KGGGGGGGGGGGGK....."
+          ],
+          "legs": [
+            [
+              "....KGGGGGGGGGGGGGGK....",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "..KGGGGGGGGGGGGGGGGGGK..",
+              "..KGGGGGGGGGGGGGGGGGGK..",
+              "..KPPPPPP......PPPPPPK..",
+              "..KKKKKKKK....KKKKKKKK.."
+            ],
+            [
+              ".....KGGGGGGGGGGGGK.....",
+              "....KGGGGGGGGGGGGGGK....",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "...KPPPPPPPPPPPPPPPPK...",
+              "...KKKKKKKKKKKKKKKKKK..."
+            ],
+            [
+              "....KGGGGGGGGGGGGGGK....",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "..KGGGGGGGGGGGGGGGGGGK..",
+              ".KGGGGGGGGGGGGGGGGGGGGK.",
+              ".KPPPPP........PPPPPPPK.",
+              ".KKKKKKK......KKKKKKKKK."
+            ]
+          ]
+        },
+
+        "up": {
+          "body": [
+            "........................",
+            ".........KKKKKK.........",
+            "........KHHHHHHK........",
+            ".......KHHHHHHHHK.......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            "......KHHHHHHHHHHK......",
+            ".......KHHHHHHHHK.......",
+            "........KHHHHHHK........",
+            ".......KHHHHHHHHK.......",
+            "......KRRHHHHHHRRK......",
+            "......KrrRRRRRRrrK......",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrLRRRRRRRRLrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrrBBBBBBBBrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            ".....KrrRRRRRRRRrrK.....",
+            "......KGGGGGGGGGGK......",
+            "......KGgGGGGGGgGK......",
+            ".....KGGGGGGGGGGGGK.....",
+            ".....KGGGGGGGGGGGGK....."
+          ],
+          "legs": [
+            [
+              "....KGGGGGGGGGGGGGGK....",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "..KGGGGGGGGGGGGGGGGGGK..",
+              "..KGGGGGGGGGGGGGGGGGGK..",
+              "..KPPPPPP......PPPPPPK..",
+              "..KKKKKKKK....KKKKKKKK.."
+            ],
+            [
+              ".....KGGGGGGGGGGGGK.....",
+              "....KGGGGGGGGGGGGGGK....",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "...KPPPPPPPPPPPPPPPPK...",
+              "...KKKKKKKKKKKKKKKKKK..."
+            ],
+            [
+              "....KGGGGGGGGGGGGGGK....",
+              "...KGGGGGGGGGGGGGGGGK...",
+              "..KGGGGGGGGGGGGGGGGGGK..",
+              ".KGGGGGGGGGGGGGGGGGGGGK.",
+              ".KPPPPP........PPPPPPPK.",
+              ".KKKKKKK......KKKKKKKKK."
+            ]
+          ]
+        },
+
+        "left": {
+          "body": [
+            "........................",
+            ".........KKKKKK.........",
+            "........KHHHHHHK........",
+            ".......KHHHHHHHHK.......",
+            ".....KHHHHHHHHHHK.......",
+            ".....KHSSSSSSHHK........",
+            ".....KHSSSSSSSHHK.......",
+            ".....KHSSEESSSHHK.......",
+            ".....KHSSEESSSHHK.......",
+            ".....KHSSSSSSSHHK.......",
+            ".....KHSSSSSSSHHK.......",
+            "......KSSSSSSHQQ........",
+            "......KSSSSSKQQQ........",
+            ".......KSSSKQQQ.........",
+            ".......KWWWKQQQ.........",
+            "......KRRRRRKQQ.........",
+            ".....KRRRRRRRKQ.........",
+            "....KRRRRRRRRRK.........",
+            "....KRLRRRRRRRK.........",
+            "....KRRRBBBBBRK.........",
+            "....KRRRRRRRRRK.........",
+            "....KGGGGGGGGGK.........",
+            "....KGgGGGGGGGK.........",
+            "....KGGGGGGGGGK.........",
+            "....KGGGGGGGGGK.........",
+            "....KGGGGGGGGGK........."
+          ],
+          "legs": [
+            [
+              "....KGGGGGGGGGK.........",
+              "....KGGGGGGGGGK.........",
+              "...KGGGGGGGGGGGK........",
+              "...KGGGGGGGGGGGK........",
+              "..KPPPPPPPPPPPK.........",
+              "..KKKKKKKKKKKKK........."
+            ],
+            [
+              ".....KGGGGGGGK..........",
+              ".....KGGGGGGGK..........",
+              "....KGGGGGGGGGK.........",
+              "....KGGGGGGGGGK.........",
+              "...KPPPPPPPPPPK.........",
+              "...KKKKKKKKKKKK........."
+            ],
+            [
+              "....KGGGGGGGGGK.........",
+              "...KGGGGGGGGGGGK........",
+              "..KGGGGGGGGGGGGGK.......",
+              ".KGGGGGGGGGGGGGGGK......",
+              ".KPPPPPP..PPPPPPPK......",
+              ".KKKKKKK..KKKKKKKK......"
+            ]
+          ]
+        }
+      }
+    }
+  }
+}
