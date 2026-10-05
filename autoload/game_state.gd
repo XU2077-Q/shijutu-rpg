@@ -32,6 +32,10 @@ var log: Array = []
 ## 已解锁结局 id → true。未解锁的结局在结局一览里**不露名字**。
 var unlocked: Dictionary = {}
 
+## 已揭的印章（时局图上的 `map` 拍）。与结局分开记 ——
+## 印章是「看到了什么」，结局是「走到了哪」，两者可以不同步。
+var markers: Dictionary = {}
+
 ## 已看过的史实注（按 "章名/标题" 存）
 var codex_seen: Dictionary = {}
 
@@ -49,6 +53,7 @@ func reset() -> void:
 	vars.clear()
 	log.clear()
 	unlocked.clear()
+	markers.clear()
 	codex_seen.clear()
 	chapter = ""
 	scene = ""
@@ -110,6 +115,18 @@ func is_unlocked(id: String) -> bool:
 	return unlocked.has(id)
 
 
+# ---------------------- 印章 ----------------------
+
+func reveal_marker(id: String) -> void:
+	if id.is_empty():
+		return
+	markers[id] = true
+
+
+func is_marker_revealed(id: String) -> bool:
+	return markers.has(id)
+
+
 # ---------------------- 回想 ----------------------
 
 ## 记一拍。bid 是原文坐标（"c1_shack:12"）或扩写坐标（"x2:0"）。
@@ -138,6 +155,7 @@ func to_dict() -> Dictionary:
 		"vars": vars.duplicate(true),
 		"log": log.duplicate(true),
 		"unlocked": unlocked.duplicate(true),
+		"markers": markers.duplicate(true),
 		"codex_seen": codex_seen.duplicate(true),
 		"chapter": chapter,
 		"scene": scene,
@@ -152,6 +170,7 @@ func from_dict(d: Dictionary) -> void:
 	vars = d.get("vars", {}).duplicate(true)
 	log = d.get("log", []).duplicate(true)
 	unlocked = d.get("unlocked", {}).duplicate(true)
+	markers = d.get("markers", {}).duplicate(true)
 	codex_seen = d.get("codex_seen", {}).duplicate(true)
 	chapter = d.get("chapter", "")
 	scene = d.get("scene", "")

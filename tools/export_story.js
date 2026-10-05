@@ -430,6 +430,17 @@ const story = {
 };
 // 先建好 story，再往它的 scenes 上插扩写 —— splice 改的就是要落盘的那一份
 const pending = splice(story, expansions);
+
+/* 切片边界。**必须由导出器出**，不能让 GDScript 再抄一份 SLICE ——
+   两份清单迟早会不一致，而不一致的那天，demo 会安安静静地演到第二章去。
+   这里给全：23 个原文场景 + 锚在它们身上的扩写节点。
+   注意必须在 splice 之后算 —— 扩写节点是 splice 才挂进 scenes 的。 */
+const sliceNodes = Object.keys(scenes).filter((id) => {
+  const e = scenes[id].expansion;
+  return e && SLICE.includes(e.anchor);
+});
+story.slice = [...SLICE.filter((id) => scenes[id]), ...sliceNodes];
+
 const s1 = write("story.json", story);
 const s2 = write("notes.json", notesOut);
 const s3 = write("markers.json", markers);
@@ -702,7 +713,7 @@ const EXPECT = { scenes: 81, beats: 2193, chapters: 6, endings: 5, markers: 6, n
                  expansions: 31, expNodes: 31, expLinked: 30, expSupersede: 1,
                  allExpBeats: 182, expBeats: 182, pending: 0,
                  totalScenes: 112, totalBeats: 2375,
-                 sliceScenes: 23, sliceBeats: 477, sliceExpansions: 9 };
+                 sliceScenes: 23, sliceBeats: 477, sliceExpansions: 9, sliceNodes: 9 };
 const chapters = new Set(Object.values(pristine).map((s) => s.ch).filter(Boolean));
 const ACTUAL = {
   scenes: origIds.length,
@@ -718,6 +729,7 @@ const ACTUAL = {
   sliceScenes: SLICE.length,
   sliceBeats: SLICE.reduce((a, id) => a + (pristine[id] ? pristine[id].beats.length : 0), 0),
   sliceExpansions: expansions.filter((e) => SLICE.includes(e.anchor)).length,
+  sliceNodes: sliceNodes.length,
 };
 console.log("\n=== 原文指纹 ===");
 {

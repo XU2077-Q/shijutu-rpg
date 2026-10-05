@@ -12109,5 +12109,39 @@
    ],
    "next": null
   }
- }
+ },
+ "slice": [
+  "p_intro",
+  "p_tea",
+  "p_choice1",
+  "p_ci",
+  "p_ke",
+  "p_gongche",
+  "p_night",
+  "p_lijm",
+  "p_end",
+  "c1_shanghai",
+  "c1_home",
+  "c1_village",
+  "c1_father",
+  "c1_choice",
+  "c1_cons",
+  "c1_rad",
+  "c1_yanfu",
+  "c1_draft",
+  "c1_draft_a",
+  "c1_draft_b",
+  "c1_draft_c",
+  "c1_miyue",
+  "c1_end",
+  "x1",
+  "x2",
+  "x3",
+  "x4",
+  "x5",
+  "x6",
+  "x7",
+  "x8",
+  "x9"
+ ]
 }

@@ -36,6 +36,12 @@ var quests: Dictionary = {}      ## 手写：任务定义
 var scenes: Dictionary = {}
 var start_scene: String = ""
 
+## 垂直切片的边界。**由导出器出**（story.json 的 slice 字段），
+## 不在 GDScript 里另抄一份 —— 两份清单迟早不一致，
+## 而不一致的那天 demo 会安安静静地演到第二章去。
+var slice: Array = []
+var slice_set: Dictionary = {}
+
 var errors: PackedStringArray = []
 var warnings: PackedStringArray = []
 
@@ -85,6 +91,10 @@ func load_all() -> void:
 		story = s
 		scenes = story.get("scenes", {})
 		start_scene = story.get("start", "")
+		slice = story.get("slice", [])
+		slice_set.clear()
+		for id in slice:
+			slice_set[id] = true
 	var n: Variant = _read_json("notes.json", true)
 	if n is Dictionary:
 		notes = n
@@ -130,8 +140,12 @@ func get_beat(bid: String) -> Dictionary:
 
 
 ## 某场景在播放时**实际**会走的节拍序列 —— 已把 supersede 顶替算进去。
-## 回想屏与 VN 回退模式都用这个，保证「看到的」与「记下的」一致。
-func playable_beats(scene_id: String) -> Array:
+## 每一项是 {"bid": "场景id:序号", "beat": {...}}。
+##
+## 带上 bid 是必须的：回想屏要靠它排序（I5），而且顶替之后
+## 下标会和原文的 beats 数组对不上 —— 只返回 beat 的话，
+## 谁也没法说清「这一拍在原文里是哪一拍」。
+func playable_bids(scene_id: String) -> Array:
 	var sc: Dictionary = scenes.get(scene_id, {})
 	if sc.is_empty():
 		return []
@@ -144,10 +158,21 @@ func playable_beats(scene_id: String) -> Array:
 		if sup.has(i):
 			var by: String = sup[i].get("by", "")
 			var repl: Dictionary = scenes.get(by, {})
-			if not repl.is_empty():
-				out.append_array(repl.get("beats", []))
+			if repl.is_empty():
+				continue
+			var rb: Array = repl.get("beats", [])
+			for j in rb.size():
+				out.append({"bid": "%s:%d" % [by, j], "beat": rb[j]})
 			continue
-		out.append(beats[i])
+		out.append({"bid": "%s:%d" % [scene_id, i], "beat": beats[i]})
+	return out
+
+
+## 只要节拍本身、不要 bid 的版本。给「拼文本做比对」这类场合用。
+func playable_beats(scene_id: String) -> Array:
+	var out: Array = []
+	for e in playable_bids(scene_id):
+		out.append(e["beat"])
 	return out
 
 
@@ -173,6 +198,19 @@ func _validate() -> void:
 	_validate_supersede()
 	_validate_ast()
 	_validate_reachability()
+	_validate_slice()
+
+
+## V7：切片边界。导出器给的 slice 里每个 id 都得是真场景。
+## 这条防的是「导出器的 SLICE 清单和实际场景对不上」——
+## 那会让 demo 在某个节点突然停住，而导出器那边是绿的。
+func _validate_slice() -> void:
+	if slice.is_empty():
+		errors.append("V7 story.json 没有 slice 字段 —— 导出器是不是没重跑？")
+		return
+	for id in slice:
+		if not scenes.has(id):
+			errors.append("V7 slice 里的 %s 不是真场景" % id)
 
 
 func _validate_start() -> void:

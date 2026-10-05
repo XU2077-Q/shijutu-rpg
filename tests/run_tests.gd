@@ -16,6 +16,8 @@ const TEST_SCRIPTS := [
 	"res://tests/unit/test_data.gd",
 	"res://tests/unit/test_cond_eval.gd",
 	"res://tests/unit/test_save.gd",
+	"res://tests/unit/test_font.gd",
+	"res://tests/unit/test_beat_runner.gd",
 ]
 
 ## 跳过这些从基类继承来的方法（它们不是用例）
