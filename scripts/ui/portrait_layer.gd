@@ -22,6 +22,8 @@ const LIT := Color(1, 1, 1, 1)
 
 const FADE := 0.22
 
+const EDGE_SHADER := "res://art/ui/portrait_edge.gdshader"
+
 var _slots: Array[TextureRect] = []
 var _owner: Array[String] = ["", ""]
 var _active := -1
@@ -35,14 +37,30 @@ func _ready() -> void:
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tr.size = SLOT_SIZE
+		# 位置全部写成 offsets，不用 `tr.position = ...`。
+		# 用 position 的话，它和上一句 set_anchors_preset 的先后就变得有讲究了
+		# （见 dialogue_box.gd 里那段关于 0×0 的说明）—— 换个顺序、或者哪天
+		# 把这句挪进 _ready()，尺寸就会静默塌掉。直接写 offsets 没有这个问题：
+		# 它只依赖锚点，跟调用时机无关。
+		tr.set_anchors_and_offsets_preset(
+			Control.PRESET_BOTTOM_LEFT if i == 0 else Control.PRESET_BOTTOM_RIGHT)
 		if i == 0:
-			tr.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-			tr.position = Vector2(SLOT_LEFT_X, SLOT_BOTTOM)
+			tr.offset_left = SLOT_LEFT_X
+			tr.offset_right = SLOT_LEFT_X + SLOT_SIZE.x
 		else:
-			tr.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-			tr.position = Vector2(SLOT_RIGHT_X, SLOT_BOTTOM)
+			tr.offset_right = SLOT_RIGHT_X
+			tr.offset_left = SLOT_RIGHT_X - SLOT_SIZE.x
+		tr.offset_top = SLOT_BOTTOM
+		tr.offset_bottom = SLOT_BOTTOM + SLOT_SIZE.y
 		tr.modulate = Color(1, 1, 1, 0)
+		# 软边材质。见 art/ui/portrait_edge.gdshader ——
+		# 立绘保留宣纸底（不抠图），硬边的话屏幕上就是一个贴上去的长方形。
+		var m := ShaderMaterial.new()
+		m.shader = load(EDGE_SHADER)
+		if m.shader == null:
+			# 材质丢了不该让整张脸消失 —— 退回硬边，游戏照跑。
+			push_warning("[PortraitLayer] 软边材质加载不出来，这一版立绘是硬边的：" + EDGE_SHADER)
+		tr.material = m
 		add_child(tr)
 		_slots.append(tr)
 		_tweens.append(null)

@@ -22,18 +22,18 @@ var _leaving := false
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 
 	_backdrop = ColorRect.new()
 	_backdrop.color = Color(Paper.NIGHT.r, Paper.NIGHT.g, Paper.NIGHT.b, 0.93)
-	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_backdrop)
 
 	_col = VBoxContainer.new()
-	_col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_col.offset_left = 140
 	_col.offset_right = -140
 	_col.alignment = BoxContainer.ALIGNMENT_CENTER

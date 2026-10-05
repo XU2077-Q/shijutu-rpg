@@ -37,7 +37,7 @@ var _run_over := false
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
 
@@ -65,7 +65,7 @@ func _begin() -> void:
 func _build() -> void:
 	_bg = ColorRect.new()
 	_bg.color = Paper.PAPER_DEEP
-	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
 
@@ -73,18 +73,18 @@ func _build() -> void:
 	_vignette.texture = _vignette_texture()
 	_vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_vignette.stretch_mode = TextureRect.STRETCH_SCALE
-	_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_vignette)
 
 	_portraits = PortraitLayer.new()
-	_portraits.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_portraits.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_portraits)
 
 	# 点屏幕任意处推进。放在立绘之上、对话框之下 ——
 	# 对话框自己是 MOUSE_FILTER_IGNORE，点击会穿到这一层。
 	var click := Control.new()
-	click.set_anchors_preset(Control.PRESET_FULL_RECT)
+	click.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	click.mouse_filter = Control.MOUSE_FILTER_STOP
 	click.gui_input.connect(_on_click)
 	add_child(click)
@@ -92,7 +92,7 @@ func _build() -> void:
 	_place = PanelContainer.new()
 	_place.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_place.add_theme_stylebox_override("panel", Paper.translucent_paper(0.86))
-	_place.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_place.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	_place.offset_left = 40
 	_place.offset_top = 32
 	_place.offset_bottom = 88
@@ -147,7 +147,7 @@ func _build_toast() -> void:
 	_toast = PanelContainer.new()
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast.add_theme_stylebox_override("panel", Paper.paper_box(Paper.CINNABAR, Paper.CINNABAR_HI, 2))
-	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_toast.offset_left = -260
 	_toast.offset_right = 260
 	_toast.offset_top = 40

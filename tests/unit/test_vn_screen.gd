@@ -266,3 +266,156 @@ func test_the_plate_names_the_right_speaker() -> void:
 
 	screen.queue_free()
 	await host.get_tree().process_frame
+
+
+# ============================================================
+#  几何 —— 内容对了，不等于画出来了
+# ============================================================
+#
+# 【这一组用例是怎么来的】
+# 上面那七条全绿的那一版，**对话框在屏幕上根本不存在**。
+# 病根是一句看着人畜无害的 `set_anchors_preset(PRESET_FULL_RECT)`：
+# 它的默认行为是「改锚点，但保住控件当前的矩形」，于是 offsets 被反算成
+# 让那个 0×0 的新控件**继续是 0×0**。对话框的根层因此塌了，
+# 底下那块 BOTTOM_WIDE 的面板按「父高 = 0」定位，被摆到了 y = -212。
+#
+# 而七条用例一条都没红 —— 它们查的是 `_body.text`。文字确实写进去了，
+# 只是没人看得见。**「内容对」和「画出来了」是两件事**，这一组量的是后者。
+#
+# 是浏览器截图先发现的（tools/webcheck.js）。headless 的哑渲染器出不了像素，
+# 这类错它一辈子也看不见 —— 这就是为什么每个里程碑都得真的导一次 Web。
+
+## 本该铺满整屏的那几层。
+const FULL_SCREEN_LAYERS := [
+	"_bg", "_vignette", "_portraits", "_box",
+	"_choices", "_quote", "_letter", "_card",
+]
+
+
+func test_every_full_screen_layer_covers_the_screen() -> void:
+	_reset()
+	var screen: Variant = load(VN_SCENE).instantiate()
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	var want: Vector2 = screen.size
+	ok(want.x > 100.0 and want.y > 100.0,
+		"界面自己是 %s —— 根控件没铺开，后面的都白量" % want)
+	for layer in FULL_SCREEN_LAYERS:
+		var c: Variant = screen.get(layer)
+		ok(c != null, "找不到 %s —— 名字改了？改名字要连这条用例一起改" % layer)
+		if c == null:
+			continue
+		ok(is_equal_approx(c.size.x, want.x) and is_equal_approx(c.size.y, want.y),
+			"%s 的尺寸是 %s，应该跟界面一样是 %s —— 满屏层没铺满"
+			% [layer, c.size, want])
+
+	screen.queue_free()
+	await host.get_tree().process_frame
+
+
+## 对话框得**在屏幕上**，而且在下半部分。
+## 这条是上面那个 y = -212 的直接看守：跑到屏幕外面去，它一样不报错。
+func test_the_dialogue_panel_is_actually_on_screen() -> void:
+	_reset()
+	var screen: Variant = load(VN_SCENE).instantiate()
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	var vp := Rect2(Vector2.ZERO, screen.size)
+	var panel: Variant = screen.get("_box").get("_box")
+	var r: Rect2 = panel.get_global_rect()
+
+	ok(vp.encloses(r), "对话面板 %s 跑到屏幕 %s 外面去了" % [r, vp])
+	ok(r.size.x > vp.size.x * 0.5,
+		"对话面板只有 %d 宽（屏幕 %d）—— 多半是外层塌成了 0×0" % [int(r.size.x), int(vp.size.x)])
+	ok(r.size.y > 60.0, "对话面板只有 %d 高，一行字都放不下" % int(r.size.y))
+	ok(r.position.y > vp.size.y * 0.5,
+		"对话面板在 y=%d，跑到屏幕上半部分去了" % int(r.position.y))
+
+	screen.queue_free()
+	await host.get_tree().process_frame
+
+
+## 名条不能压住正文第一行。
+##
+## 【这条是怎么来的】
+## 名条是「骑在边框上」的，第一版按「框顶往上 40、往下 16」摆，
+## 但 PanelContainer 会被自己的最小高度撑大（28 号字 + 上下留白 ≈ 85 px），
+## 于是它长到正文头上，把台词第一行的开头盖住了。
+## 截图里看得一清二楚，而所有查文字的用例都是绿的 —— 文字确实在，
+## 只是被另一块不透明的东西压着。
+func test_the_name_plate_does_not_cover_the_text() -> void:
+	_reset()
+	var screen: Variant = load(VN_SCENE).instantiate()
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	# 走到一句对白，让名条真的显示出来
+	var frames := 0
+	while frames < 400 and screen.box_speaker().is_empty():
+		frames += 1
+		screen.press()
+		await host.get_tree().process_frame
+	ok(not screen.box_speaker().is_empty(), "没走到任何一句对白，名条没显示")
+
+	var inner: Variant = screen.get("_box")
+	var plate: Control = inner.get("_plate")
+	var body: Control = inner.get("_body")
+	ok(plate.visible, "名条没显示出来")
+
+	var pr: Rect2 = plate.get_global_rect()
+	var br: Rect2 = body.get_global_rect()
+	ok(pr.end.y <= br.position.y,
+		"名条下沿在 y=%d，正文第一行顶在 y=%d —— 名条压住了正文"
+		% [int(pr.end.y), int(br.position.y)])
+	ok(pr.position.y >= 0.0,
+		"名条顶到 y=%d，跑到屏幕上边外面去了" % int(pr.position.y))
+
+	screen.queue_free()
+	await host.get_tree().process_frame
+
+
+## 立绘的两个位子也要在屏幕上 —— 同理，画到屏幕外不会报错。
+func test_the_portrait_slots_are_on_screen() -> void:
+	_reset()
+	var screen: Variant = load(VN_SCENE).instantiate()
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	var vp := Rect2(Vector2.ZERO, screen.size)
+	var slots: Array = screen.get("_portraits").get("_slots")
+	eq(slots.size(), 2, "立绘位不是两个")
+	for i in slots.size():
+		var r: Rect2 = slots[i].get_global_rect()
+		ok(r.size.x > 100.0 and r.size.y > 100.0,
+			"第 %d 个立绘位的尺寸是 %s —— 塌了" % [i, r.size])
+		ok(vp.intersects(r) and vp.encloses(r),
+			"第 %d 个立绘位 %s 不在屏幕 %s 里" % [i, r, vp])
+
+	screen.queue_free()
+	await host.get_tree().process_frame
+
+
+## 兜底：任何**可见的直接子层**都得占住像素。
+## 这条不针对某一个控件，针对的是「新加一层时又忘了那件事」——
+## 加进来一个 0×0 的可见控件，它在屏幕上和不存在完全一样。
+func test_no_visible_layer_collapses_to_nothing() -> void:
+	_reset()
+	var screen: Variant = load(VN_SCENE).instantiate()
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	for c in screen.get_children():
+		if not (c is Control) or not c.visible:
+			continue
+		ok(c.size.x > 0.0 and c.size.y > 0.0,
+			"直接子层 %s 是可见的，尺寸却是 %s —— 它占不到一个像素" % [c.name, c.size])
+
+	screen.queue_free()
+	await host.get_tree().process_frame

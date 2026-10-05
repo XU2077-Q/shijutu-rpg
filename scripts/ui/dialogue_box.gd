@@ -37,7 +37,21 @@ var _hint_tween: Tween
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# 必须是 set_anchors_**and_offsets**_preset，不能是 set_anchors_preset。
+	#
+	# 【踩过的坑：这里差一个词，整个对话框会消失】
+	# `set_anchors_and_offsets_preset(p)` 的默认行为是「改锚点，但**保住控件当前的矩形**」——
+	# 它会把 offsets 反算成让当前矩形不变。而 _ready() 里这个控件的当前矩形
+	# 是 0×0，于是 offsets 被反算成 (0, 0, -父宽, -父高)：锚点铺满了，
+	# 框却塌成 0×0。底下那块 BOTTOM_WIDE 的面板于是按「父高 = 0」去定位，
+	# 被摆到 y = -212 —— **屏幕上方**。不报错，不警告，就是没有字。
+	#
+	# 更阴的是：加进场景树**之前**调用同一句是好的（那时它还不知道父节点多大，
+	# 反算那一步被跳过）。所以 VNScreen 里那几层铺满的控件全都碰巧是对的，
+	# 唯独在自己 _ready() 里设的这一层塌了 —— 「一半对一半错」最难查。
+	#
+	# set_anchors_and_offsets_preset 会把 offsets 一并按预设摆好，与调用时机无关。
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	_build_box()
 	_build_plate()
@@ -49,7 +63,7 @@ func _build_box() -> void:
 	_box = PanelContainer.new()
 	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_box.add_theme_stylebox_override("panel", Paper.translucent_paper(0.94))
-	_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_box.offset_left = 72
 	_box.offset_right = -72
 	_box.offset_top = -212
@@ -68,15 +82,29 @@ func _build_box() -> void:
 
 ## 名条压在框的左上角，**骑在边框上** —— 骑上去才像贴的一张签，
 ## 完全在框内就像表格的一格。
+##
+## 【骑多少有讲究，骑多了会压住正文】
+## 第一版把名条定在「框顶往上 40、往下 16」，看着是骑在边框上，
+## 但面板会被自己的最小高度撑大（28 号字 + 上下各 20 的留白 ≈ 85 px），
+## 于是它一路长到正文第一行上头 —— 截图里「周子安」三个字正压着台词。
+##
+## 所以这里按「**从框顶往上量**」来摆，不再按面板高度猜：
+## 顶边在框顶上方 92 px，底边只探进框内 6 px。正文第一行在框顶下方 20 px
+## （content_margin_top），中间隔着 14 px 的安全距离。
+## 名字再长也只影响宽度，不影响高度，所以这个数不会因为换个人就失效。
+const PLATE_DIP := 6.0        ## 探进框内的深度
+const PLATE_TALL := 92.0      ## 整块名条的高度（比最小高度 ~85 留了余量）
+
 func _build_plate() -> void:
 	_plate = PanelContainer.new()
 	_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_plate.add_theme_stylebox_override("panel", Paper.paper_box(Paper.PAPER_DEEP, Paper.PAPER_EDGE, 2))
-	_plate.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_plate.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	_plate.offset_left = 104
-	_plate.offset_top = -252
-	_plate.offset_bottom = -196
 	_plate.offset_right = 104 + 220
+	# 框顶在 BOTTOM 锚点下是 offset_top = -212（见 _build_box）
+	_plate.offset_bottom = -212.0 + PLATE_DIP
+	_plate.offset_top = _plate.offset_bottom - PLATE_TALL
 	add_child(_plate)
 
 	_name_label = Label.new()
@@ -91,7 +119,7 @@ func _build_hint() -> void:
 	Paper.style_label(_hint, 20, Paper.INK_FAINT)
 	_hint.text = "点击继续"
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	_hint.offset_left = -180
 	_hint.offset_right = -96
 	_hint.offset_top = -76

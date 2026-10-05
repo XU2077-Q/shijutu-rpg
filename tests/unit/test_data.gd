@@ -258,6 +258,30 @@ func test_slice_original_beat_count() -> void:
 	eq(n, 477, "切片原文节拍数")
 
 
+## 切片的每一场都得有地点牌上的字。
+##
+## 【为什么这条值得单列】
+## 31 个扩写节点原本全是 `place: ""`，于是玩家走到那儿，左上角那块牌子
+## 是**空白**的 —— 不报错、不警告、测试也不红（没有任何一条用例问过
+## 「地点是空的吗」）。整整 9 场戏，占切片的四分之一。
+##
+## 这类「某个字段是空串」的毛病最不值钱也最容易漏：它不影响任何逻辑，
+## 只是画面上少一块字。所以与其一条条盯着看，不如在这里一次钉死。
+## 日期不强制 —— 「题记」那一场本来就没有日期。
+func test_every_slice_scene_has_a_place() -> void:
+	var blank: PackedStringArray = []
+	for id in DataDB.slice:
+		if not DataDB.scenes.has(id):
+			continue
+		if str(DataDB.scenes[id].get("place", "")).is_empty():
+			blank.append(id)
+	ok(blank.is_empty(),
+		"这些场景没有地点，走到那儿左上角的牌子会是空白：%s\n          "
+		% ", ".join(blank) +
+		"扩写节点默认继承锚点场景的地点（见 tools/export_story.js 的 splice）；\n"
+		+ "         正文自己换了场的那几条，要在 data/expansion_map.json 里写 place。")
+
+
 # ============================================================
 #  文本
 # ============================================================

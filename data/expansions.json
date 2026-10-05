@@ -7,6 +7,8 @@
   "title": "信息的速度 · 宣南",
   "anchor": "p_intro",
   "at": "after",
+  "place": "北京 · 宣武门外 · 宣南",
+  "date": "光绪二十一年 三月",
   "docx_paragraphs": [
    131,
    132
@@ -72,6 +74,8 @@
   "title": "茶楼跑堂顺子",
   "anchor": "p_tea",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    162,
    162
@@ -107,6 +111,8 @@
   "title": "守门的兵赵得胜",
   "anchor": "p_gongche",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    276,
    276
@@ -142,6 +148,8 @@
   "title": "换约",
   "anchor": "p_gongche",
   "at": "after",
+  "place": "",
+  "date": "光绪二十一年 四月十四",
   "docx_paragraphs": [
    278,
    278
@@ -167,6 +175,8 @@
   "title": "国中之国",
   "anchor": "c1_shanghai",
   "at": "before",
+  "place": "上海 · 外滩 · 公共租界",
+  "date": "光绪二十一年 秋",
   "docx_paragraphs": [
    390,
    390
@@ -222,6 +232,8 @@
   "title": "一行日记",
   "anchor": "c1_shanghai",
   "at": "after",
+  "place": "上海 · 十六铺 · 栈房",
+  "date": "",
   "docx_paragraphs": [
    408,
    408
@@ -252,6 +264,8 @@
   "title": "湘军故里",
   "anchor": "c1_home",
   "at": "after",
+  "place": "湖南 · 湘乡",
+  "date": "",
   "docx_paragraphs": [
    413,
    413
@@ -302,6 +316,8 @@
   "title": "义学与识字",
   "anchor": "c1_village",
   "at": "before",
+  "place": "湖南 · 湘乡 · 义学",
+  "date": "光绪二十一年 九月",
   "docx_paragraphs": [
    476,
    476
@@ -347,6 +363,8 @@
   "title": "她读到了他的文章",
   "anchor": "c1_end",
   "at": "before",
+  "place": "上海 · 江西路 · 恒昌洋行",
+  "date": "光绪二十二年 春",
   "docx_paragraphs": [
    721,
    722
@@ -407,6 +425,8 @@
   "title": "报童小满",
   "anchor": "c2_1",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    729,
    729
@@ -462,6 +482,8 @@
   "title": "女学堂",
   "anchor": "c2_2",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    842,
    842
@@ -497,6 +519,8 @@
   "title": "菱湖茧行",
   "anchor": "c2_3",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    897,
    899
@@ -577,6 +601,8 @@
   "title": "石印",
   "anchor": "c3_s3",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    1344,
    1344
@@ -612,6 +638,8 @@
   "title": "塾师柳先生",
   "anchor": "c3_s4a",
   "at": "replace",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    1369,
    1369
@@ -647,6 +675,8 @@
   "title": "豆腐老倌",
   "anchor": "c3_s4a",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    1381,
    1381
@@ -697,6 +727,8 @@
   "title": "报角批注",
   "anchor": "c3_merge",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    1762,
    1762
@@ -717,6 +749,8 @@
   "title": "一百零三天",
   "anchor": "c4_1",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    1800,
    1800
@@ -737,6 +771,8 @@
   "title": "狱中题壁",
   "anchor": "c4_1",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    1803,
    1804
@@ -763,6 +799,8 @@
   "title": "台湾十年",
   "anchor": "c4_1",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    1839,
    1839
@@ -813,6 +851,8 @@
   "title": "云林道上",
   "anchor": "c4_tw1",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2375,
    2378
@@ -938,6 +978,8 @@
   "title": "永清第一课",
   "anchor": "c4_tw1",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2386,
    2386
@@ -963,6 +1005,8 @@
   "title": "页边的抄录",
   "anchor": "c5_6",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2693,
    2699
@@ -1025,6 +1069,8 @@
   "title": "镯子与当票",
   "anchor": "c5_6",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2719,
    2725
@@ -1093,6 +1139,8 @@
   "title": "台阶边的水桶",
   "anchor": "c5_a",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2764,
    2764
@@ -1128,6 +1176,8 @@
   "title": "阿巧报名",
   "anchor": "c5_a",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2788,
    2788
@@ -1173,6 +1223,8 @@
   "title": "婚礼与四样东西",
   "anchor": "c5_a",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2790,
    2791
@@ -1218,6 +1270,8 @@
   "title": "排字工小满",
   "anchor": "c5_a",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2820,
    2820
@@ -1248,6 +1302,8 @@
   "title": "一棵桂树苗",
   "anchor": "c5_a",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2840,
    2840
@@ -1278,6 +1334,8 @@
   "title": "替他敲三下门",
   "anchor": "c5_b",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2886,
    2888
@@ -1323,6 +1381,8 @@
   "title": "玻璃板下的图",
   "anchor": "c5_c",
   "at": "before",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2933,
    2933
@@ -1353,6 +1413,8 @@
   "title": "账房里的《时局图》",
   "anchor": "c5_d",
   "at": "after",
+  "place": "",
+  "date": "",
   "docx_paragraphs": [
    2971,
    2971

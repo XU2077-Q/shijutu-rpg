@@ -30,15 +30,15 @@ func _ready() -> void:
 ## 所以宁可话多，不要客气。
 func _show_data_errors() -> void:
 	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var bg := ColorRect.new()
 	bg.color = Paper.NIGHT
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
 
 	var label := Label.new()
 	Paper.style_label(label, 20, Paper.CINNABAR_HI)
-	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	label.offset_left = 60
 	label.offset_right = -60
 	label.offset_top = 60

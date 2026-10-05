@@ -36,20 +36,20 @@ var _leaving := false
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 
 	_backdrop = ColorRect.new()
 	_backdrop.color = Color(0.06, 0.05, 0.04, 0.72)
-	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_backdrop)
 
 	_sheet = PanelContainer.new()
 	_sheet.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sheet.add_theme_stylebox_override("panel", Paper.paper_box(Paper.PAPER_LIGHT, Paper.PAPER_EDGE, 3))
-	_sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_sheet.offset_left = SHEET_SIDE
 	_sheet.offset_right = -SHEET_SIDE
 	_sheet.offset_top = SHEET_TOP
@@ -92,7 +92,7 @@ func _ready() -> void:
 
 	_seal_text = Label.new()
 	Paper.style_label(_seal_text, 22, Paper.PAPER_LIGHT)
-	_seal_text.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_seal_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_seal_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_seal_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_seal_text.mouse_filter = Control.MOUSE_FILTER_IGNORE

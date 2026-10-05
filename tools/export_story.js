@@ -234,6 +234,9 @@ function buildExpansions(paras, mapPath) {
     out.push({
       run: m.run, no: m.no, chapter: m.chapter, kind: m.kind, title: m.title,
       anchor: m.anchor, at: m.at,
+      // 只有正文自己换了场的那几条才在映射表里写 place/date，
+      // 其余留空 —— 空着的意思是「跟锚点一样」，由 splice 去继承。
+      place: m.place || "", date: m.date || "",
       docx_paragraphs: [r.start, r.end],
       beats,
     });
@@ -277,9 +280,20 @@ function splice(script, expansions) {
 
   // 建节点。31 条**全都**有节点（这样每条都可寻址），
   // 但只有 30 条会被接进脊梁图 —— 剩下的那条靠 supersede 就地顶替。
+  //
+  // 【地点与日期为什么是继承来的】
+  // 第一版这里写的是 place: "", date: ""，于是 31 个扩写节点全都没有地点，
+  // 玩家走到那儿，左上角那块牌子就是**空白**。不报错，只是一直空着 ——
+  // 是浏览器截图（tools/webcheck.js）看出来的。
+  // 绝大多数扩写就发生在锚点那一场的那一时一地，所以默认继承锚点最省事也最对；
+  // 少数几条正文自己换了场（外滩、上海洋行、栈房），由 expansion_map.json
+  // 里的 place/date 覆盖。**不在这里写死任何地名** —— 那是编辑决定，不是推导。
   for (const e of expansions) {
+    const anchorScene = scenes[e.anchor];
     scenes["x" + e.run] = {
-      ch: e.chapter, chTitle: "", place: "", date: "",
+      ch: e.chapter, chTitle: "",
+      place: e.place || anchorScene.place || "",
+      date: e.date || anchorScene.date || "",
       expansion: { run: e.run, no: e.no, kind: e.kind, title: e.title, anchor: e.anchor, at: e.at },
       beats: e.beats, next: null,
     };

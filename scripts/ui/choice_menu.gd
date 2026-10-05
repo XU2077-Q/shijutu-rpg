@@ -25,18 +25,18 @@ var _buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 
 	_dim = ColorRect.new()
 	_dim.color = Color(0.05, 0.04, 0.03, 0.55)
-	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_dim)
 
 	var col := VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_CENTER)
+	col.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 18)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -117,7 +117,7 @@ func _make_button(o: Dictionary) -> Button:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 4)
 	# 按钮的内边距是自己画的，子容器要躲开它
-	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.offset_left = 28
 	col.offset_right = -28
 	col.offset_top = 16
