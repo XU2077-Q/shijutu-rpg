@@ -18,6 +18,7 @@ const TEST_SCRIPTS := [
 	"res://tests/unit/test_save.gd",
 	"res://tests/unit/test_font.gd",
 	"res://tests/unit/test_beat_runner.gd",
+	"res://tests/unit/test_vn_screen.gd",
 ]
 
 ## 跳过这些从基类继承来的方法（它们不是用例）
@@ -26,7 +27,7 @@ const NOT_TESTS := ["test_case.gd"]
 
 func _ready() -> void:
 	await get_tree().process_frame
-	var code := _run()
+	var code: int = await _run()
 	get_tree().quit(code)
 
 
@@ -55,6 +56,7 @@ func _run() -> int:
 		if obj == null:
 			broken_files.append(path + "  —— new() 失败")
 			continue
+		obj.host = self
 
 		var cases := _test_methods(scr)
 		if cases.is_empty():
@@ -65,7 +67,17 @@ func _run() -> int:
 		for m in cases:
 			total_cases += 1
 			obj._begin(m)
-			obj.call(m)
+			# 用例可以是协程（要 await 帧、等动画）。
+			#
+			# 【必须写成 `await obj.call(m)` 这一整句】
+			# 先 `var res = obj.call(m)` 再 `await res` 会直接报
+			# 「Trying to call an async function without await」——
+			# Godot 是在**调用点**判的：只有 AWAIT 字节码紧跟在 CALL 后面，
+			# 这个动态调用才被允许是协程。分成两句，编译器就不知道了。
+			# 不 await 的话，跑架会在用例跑到一半时 quit()，
+			# 那是**安静的假绿**：断言一条都没跑，报告说通过。
+			# 顺带一提，对同步方法 await 也是合法的，会立刻返回。
+			await obj.call(m)
 			total_asserts += obj.assertions
 			if obj.failures.is_empty():
 				print("   ✓ %s" % m)

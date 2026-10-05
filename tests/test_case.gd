@@ -18,6 +18,15 @@ var failures: PackedStringArray = []
 var assertions: int = 0
 var current: String = ""
 
+## 测试宿主 —— 跑架自己（一个 Node）。
+##
+## 【为什么要有这个】
+## TestCase 是 RefCounted，没有场景树。绝大多数用例是纯函数，用不着树。
+## 但「界面接不接得住剧本」这类用例必须把**真的界面**挂进树里跑 ——
+## 挂个假的替身就测不出真界面才会犯的错（比如模态队列把节拍吞了）。
+## 所以由跑架把自己借出来，用例要用时用 host.add_child()。
+var host: Node = null
+
 ## 跑架在调用每个 test_ 方法前会设好 current，用于把失败归属到具体用例
 func _begin(test_name: String) -> void:
 	current = test_name
