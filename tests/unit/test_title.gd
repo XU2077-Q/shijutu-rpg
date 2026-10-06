@@ -17,19 +17,73 @@ const TITLE_SCENE := "res://scenes/title/title.tscn"
 const SETTINGS_PATH := "user://settings.cfg"
 
 
-func test_the_three_buttons_are_there() -> void:
+## 按文字找按钮，不按下标。
+## 【为什么不按下标】按钮是会增删的（里程碑 4 就加了一颗「走 动」）。
+## 按下标写的断言，加一颗按钮就全线错位 —— 而错位报出来的话是
+## 「第三颗应是设置」，看着像设置坏了，其实只是挪了位。
+static func _btn(got: Array, text: String) -> Dictionary:
+	for b in got:
+		if str(b.get("text", "")) == text:
+			return b
+	return {}
+
+
+func test_the_menu_buttons_are_there() -> void:
 	var t: Variant = load(TITLE_SCENE).instantiate()
 	host.add_child(t)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
 
 	var got: Array = t.described()
-	ok(got.size() == 3, "标题屏应有三颗按钮，实得 %d" % got.size())
-	if got.size() == 3:
-		ok(str(got[0]["text"]) == "新 的 一 局" and not bool(got[0]["disabled"]),
-			"第一颗应是可点的「新 的 一 局」")
-		ok(str(got[2]["text"]) == "设 置" and not bool(got[2]["disabled"]),
-			"第三颗应是可点的「设 置」")
+	var a := _btn(got, "新 的 一 局")
+	ok(not a.is_empty() and not bool(a.get("disabled", true)), "应有可点的「新 的 一 局」")
+	var s := _btn(got, "设 置")
+	ok(not s.is_empty() and not bool(s.get("disabled", true)), "应有可点的「设 置」")
+
+	# 走动演示只在 rooms.json 真的存在时才摆出来 ——
+	# 摆一颗点了没反应的按钮，比少一颗更败好感。
+	var w := _btn(got, "走 动 · 序 章 三 间")
+	ok(DataDB.rooms.is_empty() == w.is_empty(),
+		"「走 动」这颗按钮的有无，应当跟着 rooms.json 在不在走")
+
+	t.queue_free()
+	await host.get_tree().process_frame
+
+
+## 【这一条是踩出来的，别删】
+## 焦点停在「走 动 · 序 章 三 间」上按回车，进去的却是纯 VN。
+## 原因是 Button 只在**按下**那一半消费 ui_accept，松开那一半没有 ——
+## 于是按钮跑了（_walk_demo），标题屏的兜底也跑了（_start_new），
+## 后者的 change_scene_to_file 盖掉前者。
+## 之前只有三颗按钮时看不出来：焦点默认在「新 的 一 局」上，
+## 两条路做的是同一件事。
+##
+## 这里只验判据本身 —— 真去调 _unhandled_input 会 change_scene，
+## 那会把跑架自己换掉。
+func test_enter_is_the_buttons_while_a_button_has_focus() -> void:
+	var t: Variant = load(TITLE_SCENE).instantiate()
+	host.add_child(t)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	var first: Variant = null
+	for b in t.find_children("*", "Button", true, false):
+		if (b as Button).text == "新 的 一 局":
+			first = b
+	ok(first != null, "应当找得到「新 的 一 局」")
+	if first != null:
+		(first as Button).grab_focus()
+		await host.get_tree().process_frame
+		ok(host.get_viewport().gui_get_focus_owner() != null,
+			"grab_focus 之后应当有人拿着焦点")
+		ok(not bool(t.enter_starts_a_new_game()),
+			"有按钮拿着焦点时，回车归那颗按钮 —— 兜底不该也跑一遍")
+
+	# 焦点交出去，兜底才该接管
+	(host.get_viewport() as Viewport).gui_release_focus()
+	await host.get_tree().process_frame
+	ok(bool(t.enter_starts_a_new_game()),
+		"没人拿焦点时，回车才轮到兜底开局")
 
 	t.queue_free()
 	await host.get_tree().process_frame
@@ -42,14 +96,14 @@ func test_continue_follows_the_autosave() -> void:
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
 
-	var got: Array = t.described()
-	ok(got.size() == 3 and bool(got[1]["disabled"]),
+	var c := _btn(t.described(), "续 前 一 局")
+	ok(not c.is_empty() and bool(c.get("disabled", false)),
 		"盘上没有 auto 档，「续 前 一 局」应当是灰的")
 
 	# 落一份 auto 档 —— 存档机制是真实的，灌回来的状态也必须是真的。
 	SaveManager.save("auto")
-	var got2: Array = t.described()
-	ok(got2.size() == 3 and not bool(got2[1]["disabled"]),
+	var c2 := _btn(t.described(), "续 前 一 局")
+	ok(not c2.is_empty() and not bool(c2.get("disabled", true)),
 		"auto 档落盘之后，「续 前 一 局」应当亮起来")
 
 	t.queue_free()

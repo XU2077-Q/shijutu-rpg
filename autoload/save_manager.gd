@@ -50,7 +50,15 @@ func autosave() -> bool:
 # ---------------------- 写 ----------------------
 
 ## world / quests 由空间层传进来。剧情状态从 GameState 取。
+##
+## 【world 为什么要 merge 而不是直接用传进来的】
+## 存档有两个入口：VN 屏（走剧情时自动存）和房间（走动时存）。
+## VN 屏那边手上没有空间状态，只会传一个空字典 —— 直接用的话，
+## 每走一段剧情，玩家在房间里查过什么、站在哪儿，就被抹成空的了。
+## 所以默认从 GameState 取一份，调用方传进来的再盖在上面。
 func build_save(world: Dictionary = {}, quests: Dictionary = {}) -> Dictionary:
+	var w := GameState.world_dict()
+	w.merge(world, true)
 	return {
 		"save_version": SAVE_VERSION,
 		"meta": {
@@ -61,9 +69,10 @@ func build_save(world: Dictionary = {}, quests: Dictionary = {}) -> Dictionary:
 			"last": _last_line(),
 			"shen": int(GameState.stats.get("shen", 0)),
 			"lin": int(GameState.stats.get("lin", 0)),
+			"room": GameState.room,
 		},
 		"story": GameState.to_dict(),
-		"world": world,
+		"world": w,
 		"quests": quests,
 	}
 
@@ -123,6 +132,7 @@ func load_slot(slot: String) -> Dictionary:
 		return {"ok": false, "error": "存档版本 %s 迁移失败" % d.get("save_version")}
 
 	GameState.from_dict(m.get("story", {}))
+	GameState.load_world(m.get("world", {}))
 	loaded.emit(slot)
 	return {
 		"ok": true,

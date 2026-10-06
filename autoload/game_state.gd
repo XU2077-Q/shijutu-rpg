@@ -46,6 +46,11 @@ var chapter: String = ""
 var scene: String = ""
 var idx: int = 0
 
+## 空间状态。与剧情游标分开存（见文件开头那段），存档里落在 world 那一节。
+var room: String = ""                 ## 现在站在哪一间
+var player_pos: Vector2 = Vector2.ZERO
+var examined: Dictionary = {}         ## 已查看/已交谈过的物件 id → true
+
 
 func reset() -> void:
 	flags.clear()
@@ -58,6 +63,41 @@ func reset() -> void:
 	chapter = ""
 	scene = ""
 	idx = 0
+	room = ""
+	player_pos = Vector2.ZERO
+	examined.clear()
+
+
+# ---------------------- 空间 ----------------------
+
+func mark_examined(id: String) -> void:
+	if not id.is_empty():
+		examined[id] = true
+
+
+func has_examined(id: String) -> bool:
+	return examined.has(id)
+
+
+## 空间状态打包。存档里单独一节（SaveManager.build_save 的 world）——
+## 剧情游标与房间状态互不相干，混在一节里，将来做「回房间取东西」
+## 这种不动剧情的操作时，就得小心别把游标也带歪。
+func world_dict() -> Dictionary:
+	return {
+		"room": room,
+		"player_pos": [player_pos.x, player_pos.y],
+		"examined": examined.duplicate(),
+	}
+
+
+func load_world(d: Dictionary) -> void:
+	if d.is_empty():
+		return
+	room = str(d.get("room", ""))
+	var p: Variant = d.get("player_pos", [])
+	if p is Array and (p as Array).size() == 2:
+		player_pos = Vector2(float(p[0]), float(p[1]))
+	examined = (d.get("examined", {}) as Dictionary).duplicate()
 
 
 # ---------------------- 旗标 ----------------------

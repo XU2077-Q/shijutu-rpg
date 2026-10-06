@@ -245,28 +245,14 @@ func _next_scene() -> String:
 
 
 ## 每一拍都进回想日志（I5）。玩家跳过没看的闲笔，事后在回想屏还能读到。
+##
+## 映射本身在 DataDB.beat_text —— 房间层播扩写时用的是同一份，
+## 两处各写一遍的话，同一句话在回想屏里会有两种记法。
 func _log(bid: String, beat: Dictionary) -> void:
-	var speaker := ""
-	var text := ""
-	match str(beat.get("t", "")):
-		"n":
-			text = str(beat.get("x", ""))
-		"d":
-			speaker = str(beat.get("w", ""))
-			text = str(beat.get("x", ""))
-		"q":
-			speaker = str(beat.get("src", ""))
-			text = str(beat.get("x", ""))
-		"letter":
-			speaker = "书信 · " + str(beat.get("title", ""))
-			text = str(beat.get("body", ""))
-		"choice":
-			text = str(beat.get("prompt", ""))
-		"map":
-			text = str(beat.get("text", ""))
-		_:
-			return
-	GameState.log_beat(bid, speaker, text)
+	var t := DataDB.beat_text(beat)
+	if t.is_empty():
+		return
+	GameState.log_beat(bid, str(t["w"]), str(t["x"]))
 
 
 func _finish(reason: String) -> void:

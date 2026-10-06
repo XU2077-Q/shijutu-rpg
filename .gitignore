@@ -28,3 +28,6 @@ desktop.ini
 # 我的临时试验场，随手画的对照图。绝不入库。
 _scratch/
 tools/_qa/
+
+# 跑测试时随手重定向出来的引擎输出。是本机日志，不是工程内容。
+test_out.txt

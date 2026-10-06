@@ -234,3 +234,32 @@ func test_autosave_uses_auto_slot() -> void:
 	ok(SaveManager.has_slot("auto"), "应当落在 auto 格")
 	ok(not SaveManager.has_slot("1"), "不该碰手存格")
 	_cleanup()
+
+
+## 【这一条是为一个具体的坑写的，别删】
+## 存档有两个入口：VN 屏（走剧情时自动存）和房间（走动时存）。
+## VN 屏手上**没有**空间状态，调 save() 时只会传一个空字典。
+## 早期实现直接把传进来的那个空字典当 world —— 于是
+## 「在房间里查了一圈东西，回剧情走两步，进度就全没了」，
+## 而且不报错、不崩溃，玩家下次打开才发现。
+## 所以 build_save 改成「默认从 GameState 取一份，调用方传的再盖上去」。
+func test_a_story_side_save_does_not_wipe_the_world() -> void:
+	_cleanup()
+	_seed_state()
+	GameState.room = "r_tea"
+	GameState.player_pos = Vector2(640, 590)
+	GameState.mark_examined("tea.cup")
+
+	# 空 world —— 这就是 VN 屏那边传的样子
+	ok(SaveManager.save(TEST_SLOT), "剧情侧存档应当成功")
+
+	GameState.reset()
+	eq(GameState.room, "", "reset 之后房间应当清空（否则下面验不出东西）")
+
+	var r := SaveManager.load_slot(TEST_SLOT)
+	ok(r["ok"], "读档应当成功：%s" % r.get("error", ""))
+	eq(GameState.room, "r_tea", "剧情侧的存档不该把房间抹掉")
+	eq(GameState.has_examined("tea.cup"), true, "查过的物件也该还在")
+	near(GameState.player_pos.x, 640.0, 0.001, "站位 x 应当保住")
+	near(GameState.player_pos.y, 590.0, 0.001, "站位 y 应当保住")
+	_cleanup()

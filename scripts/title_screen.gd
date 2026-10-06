@@ -14,6 +14,7 @@ extends Control
 ## 这不只是手感：tools/webcheck.js 的浏览器自查靠的就是「回车」这一下。
 
 const VN_SCENE := "res://scenes/vn/vn_screen.tscn"
+const ROOM_SCENE := "res://scenes/world/room.tscn"
 const BTN_W := 300.0
 
 var _continue_btn: Button
@@ -80,6 +81,14 @@ func _build() -> void:
 	if _continue_btn.disabled:
 		_continue_btn.tooltip_text = "还没有可以续的进度"
 	menu.add_child(_continue_btn)
+	# 走动演示。里程碑 4 的成品是「房间 + 行走 + 调查」这一层，
+	# 里程碑 5 才用 story_map 把它和脊梁接起来。
+	# 在那之前，两条路各自能走通，但互不认识 —— 与其假装它们已经是一体的，
+	# 不如在标题屏上把这件事摆明。做进一个入口里才是真的骗人。
+	if DataDB.has_room(DataDB.room_start):
+		var walk_btn := _menu_button("走 动 · 序 章 三 间", _walk_demo)
+		walk_btn.tooltip_text = "广和茶楼 · 宣武门外大街 · 都察院门前 —— 能走、能查、能交谈"
+		menu.add_child(walk_btn)
 	menu.add_child(_menu_button("设 置", _open_settings))
 
 	# 键盘开局。回车 / 空格按下去要有地方落 —— 焦点不给出去，
@@ -182,12 +191,32 @@ func _recenter(col: VBoxContainer) -> void:
 
 
 ## 键盘兜底：焦点若被谁抢走（或压根没建立），回车 / 空格也要能开局。
-## 有焦点时按钮自己消费 ui_accept，走不到这里 —— 两条路互不重叠。
+##
+## 【原来这里写的是「有焦点时按钮自己消费 ui_accept，走不到这里」，这句是错的】
+## 踩出来的：加了「走 动」这颗按钮之后，焦点停在它上面按回车，
+## 进的是**纯 VN**，不是房间。
+##
+## 原因是 Button 对 ui_accept 的消费只发生在**按下**那一半：
+##   按下 → 按钮 accept_event()，这里确实走不到；
+##   松开 → 按钮在这里 emit pressed（于是「走动」真的跑了），
+##          但那一半没有被 accept，于是**这里也跑了一遍**，
+##          后跑的 change_scene_to_file 盖掉先跑的。
+## 之前三颗按钮时看不出来 —— 焦点默认在「新 的 一 局」上，
+## 两条路干的是同一件事，谁盖谁都一样。换一颗按钮，这个坑才露出来。
+##
+## 所以判据换成「有没有人拿着焦点」：有，回车就是它的；没有，才轮到兜底。
 func _unhandled_input(e: InputEvent) -> void:
 	if _settings != null and _settings.visible:
 		return
-	if e.is_action_pressed("ui_accept"):
+	if e.is_action_pressed("ui_accept") and enter_starts_a_new_game():
 		_start_new()
+
+
+## 回车该不该当成「开局」—— 有东西拿着焦点时不该。
+## 单独拎出来是为了能被测试问到：真调 _unhandled_input 会 change_scene，
+## 那会把测试跑架自己换掉。
+func enter_starts_a_new_game() -> bool:
+	return get_viewport().gui_get_focus_owner() == null
 
 
 func _start_new() -> void:
@@ -201,6 +230,15 @@ func _continue() -> void:
 		return
 	AppSettings.pending_resume = true
 	get_tree().change_scene_to_file(VN_SCENE)
+
+
+## 走动演示：直接进序章的第一间房。
+## 不碰 pending_resume —— 那条路是给「续 前 一 局」的，两边别互相踩。
+func _walk_demo() -> void:
+	AppSettings.pending_resume = false
+	AppSettings.pending_room = DataDB.room_start
+	AppSettings.pending_at = Vector2.INF
+	get_tree().change_scene_to_file(ROOM_SCENE)
 
 
 func _open_settings() -> void:

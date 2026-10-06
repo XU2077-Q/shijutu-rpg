@@ -27,6 +27,11 @@ var fullscreen := false
 ## 标题屏「续 前 一 局」→ VN 屏的递纸条。
 var pending_resume := false
 
+## 下一屏该进哪一间房、站在哪儿。空串 = 按 GameState.room 或房间表的 start 走。
+## 与 pending_resume 同一个道理：换场景会重建整棵树，只能借 autoload 递纸条。
+var pending_room := ""
+var pending_at := Vector2.INF
+
 
 func _ready() -> void:
 	_load()

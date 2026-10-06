@@ -13,8 +13,10 @@ extends Node
 ##      且被顶替的拍确实是替换者的起句     —— 第 14 条 replace 的定位规则
 ##   V5 条件 AST 的算子都认识             —— 剧本加了新门槛，求值器没实现
 ##   V6 每个扩写节点都从 start 走得到     —— 扩写写了但没接进图，等于白写
+##   R1~R8 rooms.json（手写）的结构与互指
 ##
 ## V5/V6 这两条最值钱：它们拦的都是「东西写好了，但没接上」这种**沉默的错**。
+## R 组同理，而且更要紧 —— 房间是手写的，没有导出器替我兜底。
 
 const DATA_DIR := "res://data/"
 
@@ -31,6 +33,7 @@ var expansions: Array = []
 
 var story_map: Dictionary = {}   ## 手写：节拍 → 路由
 var rooms: Dictionary = {}       ## 手写：房间定义
+var room_start: String = ""      ## 手写：从哪一间开始走
 var quests: Dictionary = {}      ## 手写：任务定义
 
 var scenes: Dictionary = {}
@@ -113,10 +116,29 @@ func load_all() -> void:
 		story_map = sm
 	var rm: Variant = _read_json("rooms.json", false)
 	if rm is Dictionary:
-		rooms = rm
+		rooms = rm.get("rooms", {})
+		room_start = str(rm.get("start", ""))
 	var qs: Variant = _read_json("quests.json", false)
 	if qs is Dictionary:
 		quests = qs
+
+
+## 一间房间的定义。没有就返回空字典 —— 调用方据此决定退到哪儿。
+func room(id: String) -> Dictionary:
+	return rooms.get(id, {})
+
+
+func has_room(id: String) -> bool:
+	return rooms.has(id)
+
+
+## 一条史实注的正文。找不到返回空串。
+## notes.json 的形状是 {章名: [{h: 标题, b: 正文}, …]}。
+func note_body(chapter: String, title: String) -> String:
+	for n in notes.get(chapter, []):
+		if str(n.get("h", "")) == title:
+			return str(n.get("b", ""))
+	return ""
 
 
 func count_beats() -> int:
@@ -176,6 +198,29 @@ func playable_beats(scene_id: String) -> Array:
 	return out
 
 
+## 一拍该以什么面目进回想日志。返回 {"w": 说话人, "x": 正文}，空字典表示这一拍不入日志。
+##
+## 【为什么要提出来做成共用的】
+## 现在有两个地方会「播一拍」：BeatRunner（走剧情）和房间层（查物件时播一段扩写）。
+## 两边各写一遍映射的话，同一句话在回想屏里就会有两种记法 ——
+## 而且这种不一致不会报错，只会在回想屏里长出一堆格式不齐的条目。
+static func beat_text(beat: Dictionary) -> Dictionary:
+	match str(beat.get("t", "")):
+		"n":
+			return {"w": "", "x": str(beat.get("x", ""))}
+		"d":
+			return {"w": str(beat.get("w", "")), "x": str(beat.get("x", ""))}
+		"q":
+			return {"w": str(beat.get("src", "")), "x": str(beat.get("x", ""))}
+		"letter":
+			return {"w": "书信 · " + str(beat.get("title", "")), "x": str(beat.get("body", ""))}
+		"choice":
+			return {"w": "", "x": str(beat.get("prompt", ""))}
+		"map":
+			return {"w": "", "x": str(beat.get("text", ""))}
+	return {}
+
+
 ## 把 "——" 与 "＊" 抹平再比。理由见 tools/export_story.js 的 norm()：
 ## 同一个分隔符在原文与读本里是两种排法，不抹平会把排版差异误判成改字。
 static func norm(t: String) -> String:
@@ -199,6 +244,7 @@ func _validate() -> void:
 	_validate_ast()
 	_validate_reachability()
 	_validate_slice()
+	_validate_rooms()
 
 
 ## V7：切片边界。导出器给的 slice 里每个 id 都得是真场景。
@@ -372,3 +418,191 @@ func _validate_reachability() -> void:
 	for id in scenes:
 		if not seen.has(id):
 			warnings.append("场景 %s 从起始场景走不到（可能是尚未启用的章节）" % id)
+
+
+# ============================================================
+#  房间校验（R 组）
+# ============================================================
+#
+# 房间是**手写**的 —— 没有导出器替我数、替我交叉核对。
+# 所以这一组的每一条都在拦一类「手写时最容易犯、又最不容易发现」的错：
+#   R1 start 房间存在          —— 改名字忘了改 start，一进游戏就是黑屏
+#   R2 房间的骨架字段齐全      —— 少一个 walk，整间房走不动
+#   R3 出生点在可走区里        —— 差 0.02 就站在墙里，卡住不动
+#   R4 物件字段齐全、kind 认识
+#   R5 物件**必须有内容**      —— 空壳物件点了没反应，是最难发现的一种「坏了」
+#   R6 物件引用的扩写 / 史实注真的存在
+#   R7 出口落点合法            —— 落地就在墙里、或一落地就被另一个出口吸走
+#   R8 每个房间至少有一个出口  —— 走进去出不来
+
+const ROOM_KINDS := ["look", "talk", "exit"]
+
+
+func _validate_rooms() -> void:
+	if rooms.is_empty():
+		return   # 手写文件，允许缺席
+
+	if not rooms.has(room_start):
+		errors.append("R1 rooms.json 的 start 指向不存在的房间：%s" % room_start)
+
+	for id in rooms:
+		var r: Dictionary = rooms[id]
+		var where := "R2 房间 %s" % id
+		if str(r.get("name", "")).is_empty():
+			errors.append(where + " 没写名字")
+		if str(r.get("bg", "")).is_empty():
+			errors.append(where + " 没写背景路径")
+
+		var walk := _polygon(r.get("walk", []))
+		if walk.size() < 3:
+			errors.append(where + " 的 walk 不是个多边形（至少三个点）：%s" % str(r.get("walk", [])))
+			continue
+		var spawn := _point(r.get("spawn", []))
+		if spawn == Vector2.INF:
+			errors.append(where + " 的 spawn 不是 [x, y]：%s" % str(r.get("spawn", [])))
+		elif not Geometry2D.is_point_in_polygon(spawn, walk):
+			errors.append("R3 %s 的出生点 %s 不在可走区里 —— 一进场就站在墙里，动不了"
+				% [where, spawn])
+
+		var seen_ids := {}
+		for o in r.get("objects", []):
+			_validate_object(id, o, seen_ids)
+		_validate_exits(id, r)
+
+
+func _validate_object(room_id: String, o: Variant, seen_ids: Dictionary) -> void:
+	if not (o is Dictionary):
+		errors.append("R4 房间 %s 里有个物件不是字典" % room_id)
+		return
+	var oid := str(o.get("id", ""))
+	var tag := "R4 房间 %s 的物件 %s" % [room_id, oid if not oid.is_empty() else "(没写 id)"]
+	if oid.is_empty():
+		errors.append(tag + " 没写 id")
+	elif seen_ids.has(oid):
+		errors.append(tag + " 重复了 —— 聚焦时不知道该选哪一个")
+	else:
+		seen_ids[oid] = true
+	if str(o.get("name", "")).is_empty():
+		errors.append(tag + " 没写名字（玩家看到的提示会是个空框）")
+
+	var kind := str(o.get("kind", ""))
+	if not ROOM_KINDS.has(kind):
+		errors.append(tag + " 的 kind 不认识：%s（只认 %s）" % [kind, ", ".join(ROOM_KINDS)])
+		return
+
+	var rect := _rect(o.get("rect", []))
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		errors.append(tag + " 的 rect 不是 [x, y, 宽, 高]：%s" % str(o.get("rect", [])))
+	elif rect.position.x < 0.0 or rect.position.y < 0.0 \
+			or rect.end.x > 1.0 or rect.end.y > 1.0:
+		errors.append(tag + " 的 rect 出了房间：%s" % str(rect))
+
+	# 只有出口用 to/at，其余两种必须有内容。
+	if kind == "exit":
+		return
+
+	var scene := str(o.get("scene", ""))
+	var note: Variant = o.get("note", [])
+	if scene.is_empty() and not (note is Array and (note as Array).size() == 2):
+		errors.append("R5 " + tag
+			+ " 是个空壳 —— 既没有 scene（扩写）也没有 note（史实注），"
+			+ "点了不会有任何反应。要么给它内容，要么把它从 rooms.json 里删掉。")
+		return
+	if not scene.is_empty():
+		if not scenes.has(scene):
+			errors.append("R6 %s 的 scene 指向不存在的场景：%s" % [tag, scene])
+		elif not scenes[scene].has("expansion"):
+			errors.append("R6 %s 的 scene 指向的不是扩写节点：%s"
+				% [tag, scene] + " —— 原文节拍归脊梁走，别挂到物件上（那会把它播两遍）")
+	if note is Array and (note as Array).size() == 2:
+		var ch := str(note[0])
+		var ti := str(note[1])
+		if note_body(ch, ti).is_empty():
+			errors.append("R6 %s 的 note 在 notes.json 里找不到：%s / %s" % [tag, ch, ti])
+
+
+func _validate_exits(room_id: String, r: Dictionary) -> void:
+	var exits := 0
+	for o in r.get("objects", []):
+		if not (o is Dictionary) or str(o.get("kind", "")) != "exit":
+			continue
+		exits += 1
+		var oid := str(o.get("id", "?"))
+		var tag := "R7 房间 %s 的出口 %s" % [room_id, oid]
+		var to := str(o.get("to", ""))
+		var at := _point(o.get("at", []))
+		if at == Vector2.INF:
+			errors.append(tag + " 的 at 不是 [x, y]：%s" % str(o.get("at", [])))
+		if to.is_empty():
+			errors.append(tag + " 没写 to")
+			continue
+		if not rooms.has(to):
+			errors.append(tag + " 指向不存在的房间：%s" % to)
+			continue
+		var tr: Dictionary = rooms[to]
+		var twalk := _polygon(tr.get("walk", []))
+		if twalk.size() >= 3 and at != Vector2.INF \
+				and not Geometry2D.is_point_in_polygon(at, twalk):
+			errors.append(tag + " 的落点 %s 不在 %s 的可走区里 —— 一过去就站在墙里"
+				% [at, to])
+		if at == Vector2.INF:
+			continue
+		# 落点不该压在目标房间的障碍物上。
+		for b in _blockers(tr.get("blockers", [])):
+			if (b["rect"] as Rect2).has_point(at):
+				errors.append(tag + " 的落点 %s 压在 %s 的「%s」上" % [at, to, b["name"]])
+		# 落点也不该落进目标房间的某个出口里 ——
+		# 那样一进门就又被那个出口吸住，两间房之间来回弹。
+		for o2 in tr.get("objects", []):
+			if not (o2 is Dictionary) or str(o2.get("kind", "")) != "exit":
+				continue
+			var r2 := _rect(o2.get("rect", []))
+			if r2.size.x > 0.0 and r2.has_point(at):
+				errors.append(tag + " 的落点 %s 正落在 %s 的出口「%s」里 —— "
+					% [at, to, str(o2.get("id", "?"))]
+					+ "一进去就会被那个出口吸走，两间房来回弹")
+
+	if exits == 0:
+		errors.append("R8 房间 %s 一个出口都没有 —— 走进去就出不来了" % room_id)
+
+
+# ---------------------- 归一化坐标的小工具 ----------------------
+# rooms.json 里的坐标一律是 0~1。这几个函数只做「形状对不对」的检查，
+# 不做范围检查 —— 范围由各自的校验点负责，混在一起会报出看不懂的错。
+
+func _point(v: Variant) -> Vector2:
+	if v is Array and (v as Array).size() == 2 \
+			and (v[0] is float or v[0] is int) and (v[1] is float or v[1] is int):
+		return Vector2(float(v[0]), float(v[1]))
+	return Vector2.INF
+
+
+func _polygon(v: Variant) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if not (v is Array):
+		return out
+	for p in v:
+		var q := _point(p)
+		if q == Vector2.INF:
+			return PackedVector2Array()
+		out.append(q)
+	return out
+
+
+func _rect(v: Variant) -> Rect2:
+	if v is Array and (v as Array).size() == 4:
+		var p := _point([v[0], v[1]])
+		var s := _point([v[2], v[3]])
+		if p != Vector2.INF and s != Vector2.INF:
+			return Rect2(p, s)
+	return Rect2()
+
+
+func _blockers(v: Variant) -> Array:
+	var out: Array = []
+	if not (v is Array):
+		return out
+	for b in v:
+		if b is Dictionary:
+			out.append({"name": str(b.get("name", "?")), "rect": _rect(b.get("rect", []))})
+	return out

@@ -14,6 +14,7 @@ extends Control
 ## 像是漏了一拍。所以模态开着的时候，节拍先存进 _pending，等卡走完再放。
 
 const BG_DIR := "res://data/bg_placeholder/"   ## 背景还没生成，先留着位置
+const TITLE_SCENE := "res://scenes/title/title.tscn"
 
 enum Modal { NONE, CARD, QUOTE, LETTER, CHOICE }
 
@@ -341,6 +342,31 @@ func _on_click(e: InputEvent) -> void:
 
 
 func _unhandled_input(e: InputEvent) -> void:
+	# Esc 回标题屏。
+	#
+	# 【为什么现在就得有】
+	# 房间屏（room_view.gd）一开始就接了 menu，VN 屏这边却漏了 ——
+	# 于是「开了一局之后想回标题」这条路**根本不存在**：
+	# 浏览器里只能刷新页面，桌面上只能重启。少了它，玩家换一档、改设置、
+	# 或者只是想看看标题，都得先杀掉这个程序。这不是「以后做暂停菜单再说」
+	# 的事，是一条断掉的路。
+	#
+	# 走这一下不会丢进度：VN 屏在**每次进场景**和**每次摆出选项**时都落了
+	# 自动存档（见 test_autosave_lands_on_scene_entry_and_choices），
+	# 回来「续 前 一 局」接得上。
+	#
+	# 但模态开着的时候不认 —— 正摆着选择，一按 Esc 就回标题，
+	# 玩家会以为自己那一下选了什么。真要退出，先把选项点掉。
+	if e.is_action_pressed("menu"):
+		if _modal == Modal.NONE:
+			# 先吃下这一下，再换场景 —— 反过来的话 change_scene_to_file
+			# 已经把旧场景拆出树了，set_input_as_handled 会走在一个
+			# 不在树上的 Viewport 上，引擎甩一句
+			#   ERROR: Condition "!is_inside_tree()" is true. at: set_input_as_handled
+			# 不崩，但自查里这条假报错会盖住真报错。房间屏同理。
+			get_viewport().set_input_as_handled()
+			get_tree().change_scene_to_file(TITLE_SCENE)
+		return
 	if e.is_action_pressed("ui_advance") or e.is_action_pressed("interact"):
 		press()
 		get_viewport().set_input_as_handled()
