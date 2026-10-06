@@ -1,13 +1,34 @@
 class_name RoomView
 extends Control
-## 房间屏 —— 里程碑 4 的成品：能走、能调查。
+## 房间屏 —— 里程碑 5 的成品：脊梁在房间里演，玩家在房间里走。
 ##
 ## 【它与 VN 屏的分工】
-## VN 屏负责脊梁：剧情一拍一拍往前走，玩家只能按「下一句」。
-## 房间屏负责中间那层：玩家在场景里走动、查物件、跟人说话。
-## 两边共用对话框、立绘层、史实注，但**互不知道对方存在** ——
-## 里程碑 5 才用 story_map 把它们串起来。现在串起来的话，
-## 「走到哪儿剧情就跳到哪儿」这件事会渗进两个屏，两边都难改。
+## VN 屏是里程碑 3 留下的**线性回退**：从头按到底，没有房间、没有走动。
+## 房间屏才是这款游戏的正身 —— 剧情在房间里演，演完放玩家走走。
+## 两边共用对话框、立绘层、史实注，但**走的不是同一条路**：
+## VN 屏是 I6 的验证预言机（vn_mode，见 beat_runner.gd），
+## 房间屏是 spine_mode。两条路都必须留着，理由在下面。
+##
+## 【「读一场 → 走一段」这个节奏是怎么定下来的】
+## 试过两种别的走法，都不行：
+##
+##   一是「拍一层路由」——把连续的旁白切成调查点。真拿 c1_shanghai 对了一遍，
+##   那是 22 拍连着的散文，从十六铺码头一路写到「原来中国人，可以这样跟洋人说话」。
+##   切开就是把它剁成七八段。原文是这部作品的本体，动不得（见 story_map.json）。
+##
+##   二是「边走边演」——剧情一直往前推，玩家随时能走。听着最 RPG，
+##   但对话框只有一个：玩家一走开，读到哪儿、剧情推到哪儿，两件事立刻打架，
+##   而且打完架没有一处代码能说清是谁的错。
+##
+## 所以定成现在这样：**一场戏演完就停住（BeatRunner.pause_between_scenes），
+## 玩家在房间里走、查物件、跟人说话，走到下一场戏所在的那间房，剧情自动接上。**
+## 两个模式轮流占用屏幕，谁都不用去抢对方的对话框 ——
+## 这条边界正是「互不知道对方存在」那句话的落地方式。
+##
+## 【玩家走错了房间怎么办】
+## 什么也不发生。查物件、走回头路，都不动剧情游标 ——
+## 下一场戏在哪间房等着，是 story_map 说了算的，玩家走到那儿才接上。
+## 这就是 rooms.json 里那些闲笔敢不锁出口的底气。
 ##
 ## 【点一下就自动走过去，为什么要这样】
 ## 玩家点一个物件，心里想的是「我要看那个」，不是「我要走到那儿，然后再按一下」。
@@ -43,6 +64,12 @@ var _box: DialogueBox
 var _portraits: PortraitLayer
 var _note: NoteView
 var _hint: Label
+var _choices: ChoiceMenu
+var _card: ChapterCard
+
+## 呈现层的暗场。没有房间的那几场（题记 / 书信 / 林婉如视角 / 尾声）
+## 就压在这块底色上演 —— 它们不属于沈怀瑾走过的任何一个地方。
+var _present: ColorRect
 
 ## 热点：[{data, rect(像素), stand(像素)}]。每次尺寸变化重算。
 var _spots: Array = []
@@ -55,10 +82,50 @@ var _walking_to := -1
 ## 正在播的一段扩写
 var _queue: Array = []
 var _qi := 0
+
+## 屏上正压着一段东西，玩家不能走。**两种**东西都会把它点亮：
+##   · 脊梁的一场戏（推进器在推，press() 该调 BeatRunner.advance()）
+##   · 玩家查来的一段扩写（_queue 在翻，press() 该调 _qi += 1）
+## 走路、焦点、提示条只关心「能不能动」，不关心是哪种，所以共用这一个。
 var _playing := false
+
+## 在播的那一段是**扩写**，不是脊梁。
+##
+## 【为什么非得分出来】
+## 里程碑 5 之前 `_playing` 只有扩写一种来源，press() 里 `if _playing: _qi += 1`
+## 就是对的。脊梁接上之后，进一场戏也会把 `_playing` 点亮 —— 于是
+## press() 被 `if _spine` 那条分支抢先接走，去调 BeatRunner.advance()。
+## 而玩家查东西的时候，推进器正停在场景缝里（_paused），advance() 是个空操作。
+##
+## 结果：**在房间里跟顺子说话，第一句永远翻不过去。**
+## 而 milestone 4 那条自由走动路径（_spine 为假）照旧能翻，
+## 所以老用例一条都不红 —— 只有真的在脊梁上跟 NPC 说一次话才看得见。
+var _expansion := false
+
 ## 正在播的是哪一段。_show_current 报错时要指名道姓 ——
 ## 它自己拿不到场景 id（那是 _play_scene 的入参），所以存在这儿。
 var _scene_id := ""
+
+# ---------------------- 脊梁模式 ----------------------
+
+## 这一屏是「在演剧情」还是「在放玩家乱走」。
+## 关掉它，本屏就是里程碑 4 那套纯调查层（测试里两种都要跑）。
+var _spine := false
+## 这一场戏的 id。停在缝里的时候 BeatRunner.scene_id 还是它，但别处不该去读
+## 推进器的内部状态 —— 存一份，房间层自己说的话自己负责。
+var _spine_scene := ""
+## 停在缝里时，下一场戏是哪一场。空串 = 没在缝里。
+##
+## 【为什么在这儿算一次，而不是等 resume_next 时问推进器】
+## 玩家得**先知道该往哪儿走**。而 resume_next() 一调，推进器就迈过去了 ——
+## 那时候再问「下一场在哪间房」已经晚了一步，玩家看到的是
+## 「我还没走，剧情自己跑了」。所以停在缝里的时候就把下一场定下来，
+## 写进提示条，等玩家走到那间房再放行。
+var _next_spine := ""
+
+## 现在这张卡是不是**这一局的收尾卡**。章节卡退场什么都不做，
+## 收尾卡退场回标题屏 —— 两者的 finished 信号长得一模一样。
+var _card_ends_run := false
 
 var _debug := true
 
@@ -72,6 +139,15 @@ func _ready() -> void:
 
 
 func _enter_from_settings() -> void:
+	# 「走 动」那颗按钮走的是脊梁：剧情游标从 p_intro 起，房间跟着剧情换。
+	# 里程碑 4 那套「直接丢进一间空房乱走」的路留着 —— 调试和测试都要用。
+	if AppSettings.pending_spine:
+		AppSettings.pending_spine = false
+		AppSettings.pending_room = ""
+		AppSettings.pending_at = Vector2.INF
+		begin_spine()
+		return
+
 	var id := AppSettings.pending_room
 	AppSettings.pending_room = ""
 	if id.is_empty():
@@ -84,10 +160,223 @@ func _enter_from_settings() -> void:
 
 
 # ============================================================
+#  脊梁
+# ============================================================
+#
+# 【谁拿着剧情游标】
+# BeatRunner。房间屏一根手指都不碰 GameState.scene/idx ——
+# 它只做两件事：把推进器送来的拍子画出来，以及把玩家走到的地方告诉它。
+#
+# 【为什么不用 _queue 自己播脊梁】
+# _queue 那套是给扩写用的：只播不推。要是拿它播脊梁，条件过滤、supersede
+# 顶替、选项的 gain/flag 全得在房间屏里再写一遍 —— 两处各写一遍的
+# 剧情逻辑，迟早会有一处跟另一处不一样，而且不会报错。
+
+func begin_spine() -> void:
+	_spine = true
+	_next_spine = ""
+	_spine_scene = ""
+
+	BeatRunner.stop()
+	BeatRunner.slice_only = true
+	BeatRunner.vn_mode = false
+	BeatRunner.spine_mode = true
+	BeatRunner.pause_between_scenes = true
+
+	BeatRunner.scene_entered.connect(_on_spine_scene_entered)
+	BeatRunner.beat_entered.connect(_on_spine_beat)
+	BeatRunner.choice_presented.connect(_on_spine_choice)
+	BeatRunner.scene_finished.connect(_on_spine_scene_finished)
+	BeatRunner.run_finished.connect(_on_spine_run_finished)
+
+	BeatRunner.begin(DataDB.spine_start())
+
+
+func _on_spine_scene_entered(id: String, scene: Dictionary) -> void:
+	_spine_scene = id
+	# 下一场已经落地了，缝里那条提示作废。
+	_next_spine = ""
+
+	var room := DataDB.room_for_scene(id)
+	if room.is_empty():
+		_set_presentation(true)
+	else:
+		_set_presentation(false)
+		if room != _room_id:
+			enter(room)
+	_place_label.text = _spine_place_text(scene)
+
+	# 章节卡挂在**场景**上（序章卡挂在 p_tea，不是挂在 p_intro 上）。
+	# 房间屏原本漏了这一条，而 VN 屏有 —— 同一个序章，两条路一个看得到卡、
+	# 一个看不到。卡不占拍子（它是盖在对话框上的一层，退场后第一拍还在），
+	# 所以这里补上不会打乱节奏。
+	if scene.has("card"):
+		_card_ends_run = false
+		_portraits.clear()
+		_card.present(scene["card"])
+
+	_playing = true
+	_prompt.visible = false
+	_update_hint()
+	SaveManager.autosave()
+
+
+func _on_spine_beat(_bid: String, beat: Dictionary) -> void:
+	_render(beat, true)
+
+
+func _on_spine_choice(_bid: String, beat: Dictionary) -> void:
+	_render(beat, true)
+	# 提示条要改口（见 _update_hint 里那条）：这会儿空格是哑的，
+	# 不能还写着「空格 继续」。
+	_update_hint()
+	# 选项正摆着的那一刻落一次档（与 VN 屏同一条规矩）：续玩回到选择现场。
+	SaveManager.autosave()
+
+
+func _on_choice_made(index: int) -> void:
+	_choices.close()
+	BeatRunner.choose(index)
+
+
+## 一场戏的拍子播完了。停在缝里，让玩家走一段。
+func _on_spine_scene_finished(id: String) -> void:
+	_playing = false
+	_box.hide_box()
+	_choices.close()
+
+	_next_spine = DataDB.spine_step(id)
+	var room := DataDB.room_for_scene(_next_spine)
+
+	# 没地方可走就直接接着演：同房连播、呈现层（它没有房间）、
+	# 以及开局（玩家还没有任何房间可站）。这三种情况要是也停下来，
+	# 玩家会卡在一个走不到任何地方的缝里 —— 没有出口能让他「走到」下一场。
+	if _next_spine.is_empty() or room.is_empty() or room == _room_id or _room_id.is_empty():
+		_resume_spine()
+		return
+
+	_update_hint()
+
+
+func _resume_spine() -> void:
+	_next_spine = ""
+	BeatRunner.resume_next()
+
+
+func _on_spine_run_finished(reason: String) -> void:
+	_playing = false
+	_next_spine = ""
+	_choices.close()
+	_box.hide_box()
+	_prompt.visible = false
+	_update_hint()
+
+	# 这里出现的卡**一律**是收尾卡（章节卡只在进场景时放，不走这条路）。
+	_card_ends_run = true
+	match reason:
+		"slice_end":
+			_set_presentation(true)
+			_card.present({
+				"num": "垂 直 切 片",
+				"title": "到 此 为 止",
+				"sub": "—— 序章「春愁」与第一章「熊」已完成 ——",
+			}, true)
+		"no_next":
+			# 脊梁走到头却不是切片边界 —— 是数据错，不是玩家走到了结局。
+			push_error("[RoomView] 脊梁走完了但没到切片边界 —— 检查 story_map 的 spine")
+			_set_presentation(true)
+			_card.present({"num": "", "title": "数据异常", "sub": "脊梁走到尽头，但不是切片边界"}, true)
+		_:
+			push_warning("[RoomView] 脊梁中断：%s" % reason)
+			_set_presentation(true)
+			_card.present({"num": "", "title": "中断", "sub": reason}, true)
+
+
+## 卡退场了。
+##
+## 【为什么要有 _card_ends_run 这道闸】
+## 章节卡（序章「春愁」那张）也会发 finished —— 非 sticky 的卡 2.4 秒后
+## 自己淡出。不区分的话，一进茶楼就被那张卡**送回标题屏**，
+## 而画面上看起来只是「卡闪了一下，游戏没了」。
+func _on_card_closed() -> void:
+	if not _card_ends_run:
+		return
+	# 收尾卡点掉 → 回标题。这一局到此为止，玩家能看见自己走到了哪儿。
+	get_tree().change_scene_to_file(TITLE_SCENE)
+
+
+## 呈现层开合。没有房间的那几场压在一块暗底上演，
+## 背景、小人、提示条一起收起来 —— 不是「盖住了」，是「换了个地方」。
+func _set_presentation(on: bool) -> void:
+	_present.visible = on
+	_walker.visible = not on
+	_hint.visible = not on
+	if on:
+		_bg.visible = false
+		_placeholder.visible = false
+		_prompt.visible = false
+		return
+	_bg.visible = _bg_exists
+	_placeholder.visible = not _bg_exists
+
+
+func _spine_place_text(scene: Dictionary) -> String:
+	var place := str(scene.get("place", ""))
+	var date := str(scene.get("date", ""))
+	if not place.is_empty() and not date.is_empty():
+		return "%s　·　%s" % [place, date]
+	if not place.is_empty():
+		return place
+	if not date.is_empty():
+		return date
+	return _place_text()
+
+
+func _update_hint() -> void:
+	if not _spine:
+		return
+	if _card.visible:
+		_hint.text = "空格 / 点击 收起"
+		return
+	# 选项摆着的时候不能写「空格 继续」—— 空格这会儿是**哑的**
+	# （ChoiceMenu._input 把它吞了，见那边的说明）。写着能按却按不动，
+	# 玩家只会以为卡住了。
+	if _choices.visible:
+		_hint.text = "点选项 · 或按 ↑↓ 选、回车定 · Esc 回标题"
+		return
+	if _playing:
+		_hint.text = "空格 继续 · Esc 回标题"
+		return
+	if not _next_spine.is_empty():
+		_hint.text = "剧情在「%s」· 走到那间房就接着演 · WASD 或点地上走" % _room_name_of(_next_spine)
+		return
+	_hint.text = "点地上走过去 · WASD 也能走 · 空格 查看 / 交谈 · Esc 回标题"
+
+
+func _room_name_of(scene_id: String) -> String:
+	var r := DataDB.room_for_scene(scene_id)
+	if r.is_empty():
+		return "别处"
+	if not DataDB.has_room(r):
+		return r
+	return str(DataDB.room(r).get("name", r))
+
+
+# ============================================================
 #  搭界面
 # ============================================================
 
 func _build() -> void:
+	# 呈现层的暗场。挂在**最底下**，但初始不可见；_set_presentation(true) 时
+	# 把背景/占位/小人/提示一起藏起来，只剩它 —— 于是它看起来像是
+	# 「换了个地方」，而不是「背景图上盖了块布」。
+	_present = ColorRect.new()
+	_present.color = Paper.NIGHT
+	_present.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_present.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_present.visible = false
+	add_child(_present)
+
 	_bg = TextureRect.new()
 	_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -150,6 +439,18 @@ func _build() -> void:
 
 	_note = NoteView.new()
 	add_child(_note)
+
+	# 选项。三个选择场景（p_choice1 / c1_choice / c1_draft）都在房间里演，
+	# 所以房间屏必须自己有一套 —— 不能指望「碰到选择就切去 VN 屏」：
+	# 那会把玩家从他正站着的房间一脚踢出去，回来时人还站在原地，
+	# 而中间发生的事全在一张黑屏上。用 VN 屏现成的那一个，行为也一致。
+	_choices = ChoiceMenu.new()
+	_choices.chosen.connect(_on_choice_made)
+	add_child(_choices)
+
+	_card = ChapterCard.new()
+	add_child(_card)
+	_card.finished.connect(_on_card_closed)
 
 	# 走动提示。切片阶段玩家不知道能点能走，给一行小字。
 	#
@@ -245,6 +546,7 @@ func enter(id: String, at: Vector2 = Vector2.INF) -> void:
 	_placeholder.visible = not _bg_exists
 
 	_playing = false
+	_expansion = false
 	_queue.clear()
 	_qi = 0
 	_box.hide_box()
@@ -262,6 +564,18 @@ func enter(id: String, at: Vector2 = Vector2.INF) -> void:
 	_refresh_focus()
 
 	SaveManager.autosave()
+
+	# 走到了「下一场戏所在的那间房」= 剧情接上。
+	#
+	# 【判据为什么是「房间对不对」，不是「玩家走了哪条出口」】
+	# 出口是空间的事，剧情是叙事的事，story_map 把两者接在一起靠的就是
+	# room_for_scene 这一张对照表。按出口判的话，同一间房多开一条路
+	# （比如将来加一扇侧门）就得记得改两处。
+	#
+	# 放最后：_resume_spine 会一路推下去、可能又进一次 enter()，
+	# 前面那些收尾得先做完。
+	if _spine and not _next_spine.is_empty() and DataDB.room_for_scene(_next_spine) == id:
+		_resume_spine()
 
 
 func _walker_prefix() -> String:
@@ -399,18 +713,42 @@ func _gui_input(e: InputEvent) -> void:
 	accept_event()
 
 
-## 一「按」。顺序不能乱：史实注 → 正在播的一段 → 默认无反应。
+## 一「按」。顺序不能乱：卡 → 史实注 → 选项 → 扩写 → 脊梁 → 默认无反应。
+##
+## 【扩写为什么排在脊梁前面】
+## 两者都由 _playing 点着，光看 _playing 分不出该翻哪一本账（见 _expansion）。
+## 真同时在的场合其实没有（查东西的时候玩家动不了，剧情也就接不上），
+## 但顺序写死比「反正不会同时发生」稳 —— 后者是句要靠推理维持的话。
 func press() -> void:
+	if _card.visible:
+		_card.skip()
+		return
 	if _note.visible:
 		_note.dismiss()
 		return
-	if _playing:
+	if _choices.visible:
+		# 选项摆着，等玩家点。空格落到这儿是**界面的**意思，不是推进 ——
+		# 推进器那边也会拦（awaiting_choice 时 advance() 无效），两道都要有：
+		# 一道拦玩家，一道拦写错的界面。
+		return
+	if _expansion:
 		if _box.is_typing():
 			_box.skip_typing()
 		else:
 			_qi += 1
 			_show_current()
 		return
+	if _spine:
+		if not _playing:
+			return
+		if _box.is_typing():
+			_box.skip_typing()
+		else:
+			BeatRunner.advance()
+		return
+	if _playing:
+		# 走到这儿说明既不是脊梁也不是扩写 —— 没有第三种，真到了就是状态串了。
+		push_error("[RoomView] 在播，但既不是脊梁也不是扩写：_scene_id=%s" % _scene_id)
 
 
 func _process(delta: float) -> void:
@@ -538,7 +876,11 @@ func _play_scene(scene_id: String) -> void:
 	_queue = DataDB.playable_bids(scene_id)
 	_qi = 0
 	_playing = true
+	_expansion = true
 	_prompt.visible = false
+	# 提示条也要改口。不改的话玩家一边读着顺子、底下一边写着
+	# 「走到那间房就接着演 · WASD 或点地上走」—— 而他此刻一步也走不动。
+	_update_hint()
 	_show_current()
 
 
@@ -554,6 +896,27 @@ func _show_current() -> void:
 	if not t.is_empty():
 		GameState.log_beat(bid, str(t["w"]), str(t["x"]))
 
+	if not _render(beat, false):
+		# 扩写里出现了不能单独播的拍。悄悄跳过去的话，玩家会少读一段
+		# 而没人知道 —— 所以先报错，再跳，别把整段卡死。
+		_qi += 1
+		_show_current()
+		return
+
+
+## 把一拍画出来。**房间屏只有这一处画拍子** —— 脊梁和扩写走同一条路。
+##
+## 【为什么非要合成一个】
+## 这两条路各自画一拍的话，将来给「书信」加个翻页动画、给「揭章」换个
+## 印章样式，就得记得改两处。而漏改一处不会报错，只会让玩家在
+## 「查来的那一封」和「剧情里的那一封」上看到两个样子。
+##
+## story = 这一拍来自脊梁。区别只有两处：
+##   · 脊梁允许 choice / end（扩写不允许，出现了就是数据错）
+##   · 选项摆出来的时机不同（脊梁那边推进器已经在等，扩写那边永远等不到）
+##
+## 返回 false = 这一拍画不出来，调用方该跳过它。
+func _render(beat: Dictionary, story: bool) -> bool:
 	match str(beat.get("t", "")):
 		"n":
 			_box.show_narration(str(beat.get("x", "")), bool(beat.get("emph", false)))
@@ -570,21 +933,34 @@ func _show_current() -> void:
 			for m in beat.get("reveal", []):
 				GameState.reveal_marker(str(m))
 			_box.show_narration(str(beat.get("text", "")), true)
+		"choice":
+			if not story:
+				push_error("[RoomView] 扩写 %s 里有不能单独播的节拍：choice"
+					% _scene_id)
+				return false
+			_box.hide_box()
+			_choices.present(str(beat.get("prompt", "")), BeatRunner.current_options())
+		"end":
+			if not story:
+				push_error("[RoomView] 扩写 %s 里有不能单独播的节拍：end" % _scene_id)
+				return false
+			# 结局拍由推进器收尾（story_finished），屏幕上没有要画的。
+			_box.hide_box()
 		_:
-			# 扩写里不该出现 choice / end。真出现了就是数据错了 ——
-			# 悄悄跳过去的话，玩家会少读一段而没人知道。
-			push_error("[RoomView] 扩写 %s 里有不能单独播的节拍：%s"
-				% [_scene_id, str(beat.get("t", ""))])
-			_qi += 1
-			_show_current()
-			return
+			push_error("[RoomView] %s 里有不能播的节拍：%s"
+				% [_scene_id if not story else _spine_scene, str(beat.get("t", ""))])
+			return false
+	return true
 
 
 func _finish_playing() -> void:
 	_playing = false
+	_expansion = false
 	_queue.clear()
 	_box.hide_box()
 	_update_prompt()
+	# 读完一段，提示条要改回「该去哪儿 / 能走」。剧情多半还停在缝里。
+	_update_hint()
 
 
 # ============================================================
@@ -718,9 +1094,68 @@ func queue_size() -> int:
 	return _queue.size()
 
 ## 不走打字机，直接把当前这一句显示完并翻到下一拍。
+##
+## 【判据是 _expansion 不是 _playing】翻的是 _queue 那本账，
+## 脊梁在演的时候 _qi 是上一个场景留下的旧数 —— 照着它翻会把
+## 一段早演完的扩写重新拉出来。
 func next_beat() -> void:
-	if not _playing:
+	if not _expansion:
 		return
 	_box.skip_typing()
 	_qi += 1
 	_show_current()
+
+
+# ---------------------- 脊梁（给测试看的） ----------------------
+
+func spine_on() -> bool:
+	return _spine
+
+func spine_scene() -> String:
+	return _spine_scene
+
+## 停在缝里时，下一场戏是哪一场（空串 = 没在缝里）。
+func spine_next_scene() -> String:
+	return _next_spine
+
+## 停在缝里 = 玩家在走、剧情不动。这是「读一段、走一段」那个节奏的判据。
+func spine_paused() -> bool:
+	return _spine and not _playing and BeatRunner.is_paused()
+
+func presentation_on() -> bool:
+	return _present.visible
+
+func hint_text() -> String:
+	return _hint.text
+
+func choices_open() -> bool:
+	return _choices.visible
+
+## [{text, enabled}] —— 屏幕上真摆着的那几个。
+func choice_texts() -> Array:
+	return _choices.described()
+
+func choose(index: int) -> void:
+	_on_choice_made(index)
+
+func card_visible() -> bool:
+	return _card.visible
+
+func card_title() -> String:
+	return _card.debug_title()
+
+## 现在这张卡退场之后会不会回标题屏。
+## 【为什么不直接调 _on_card_closed() 看它跳不跳】那会真的 change_scene，
+## 把跑架自己换掉 —— 测试当场没了。所以验的是那道闸本身。
+func card_ends_run() -> bool:
+	return _card_ends_run
+
+
+## 立刻把章节卡收掉，不走淡出。测试用 —— 见 ChapterCard.force_hide 的说明。
+func drop_card() -> void:
+	_card.force_hide()
+
+
+## 一「按」。测试用它推进剧情，不必造键盘事件。
+func press_now() -> void:
+	press()

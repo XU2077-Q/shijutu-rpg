@@ -467,7 +467,73 @@ func test_choice_buttons_hold_their_text() -> void:
 				"标签高 %d 不足内容高 %d —— 行数被压掉了" % [int(l.size.y), int(need.y)])
 
 	menu.queue_free()
+
+
+## **空格不许把选项选掉。**
+##
+## 【这一条是真事换来的】
+## 里程碑 5 的浏览器验收脚本一路按空格推进剧情，走到宣武门时选项弹了出来 ——
+## 而那颗还在半路上的空格把它选了，剧情拐去杨椒山祠，
+## 脚本从头到尾没打算选任何东西。截图上是「游戏自己走了另一条路」。
+##
+## 病根：Button 拿到焦点就会吃 ui_accept，而**空格和回车都是 ui_accept**。
+## 房间屏 press() 里那句「空格落到这儿是界面的意思，不是推进」是对的，
+## 只是被按钮抢先接走，压根没轮到它执行。
+##
+## 所以：选项摆着的时候空格在 _input 里就被吞掉，回车和鼠标照旧。
+func test_space_does_not_pick_an_option() -> void:
+	_reset()
+	var menu: Variant = load("res://scripts/ui/choice_menu.gd").new()
+	host.add_child(menu)
 	await host.get_tree().process_frame
+
+	var opts := [
+		{"index": 0, "text": "去杨椒山祠。", "hint": "", "enabled": true, "lock": ""},
+		{"index": 1, "text": "回客栈。", "hint": "", "enabled": true, "lock": ""},
+	]
+	var picked: Array = []
+	menu.chosen.connect(func(i: int) -> void: picked.append(i))
+	menu.present("你打算怎么办？", opts)
+	await host.get_tree().process_frame
+
+	# 【验的是「空格到不了按钮跟前」，不是「按下去没被选中」】
+	# 后一句在 headless 里验不了：引擎自己的焦点就来得晚（实测 30 帧上下），
+	# 而且 push_input 压根推不动按钮的键盘激活 —— 两条都试过。
+	# 于是「按了空格没被选中」在**有没有这个补丁时都是绿的**，
+	# 那是假绿，比没有用例更坏。
+	#
+	# 能确定验的是这条因果链的第一环，也正是补丁本身：
+	# 空格在 _input 里被选项框吃掉（is_input_handled），按钮因此根本见不到它。
+	ok(not host.get_viewport().is_input_handled(), "前提：这会儿还没有人处理过输入")
+	_press_key(menu, KEY_SPACE)
+	ok(host.get_viewport().is_input_handled(),
+		"空格没被选项框吞掉 —— 它会一路走到按钮跟前，把第一项选掉")
+	ok(picked.is_empty(), "空格不该选出任何东西")
+
+	# 回车**不能**吞 —— 吞了键盘玩家就选不了了。
+	_press_key(menu, KEY_ENTER)
+	ok(not host.get_viewport().is_input_handled(),
+		"回车被选项框吞掉了 —— 键盘玩家就没法选了")
+	ok(picked.is_empty(), "回车该留给按钮处理，不该由选项框自己直接选")
+
+	# 收起来之后就不该再吞了，否则空格在房间里会变成哑的。
+	menu.close()
+	_press_key(menu, KEY_SPACE)
+	ok(not host.get_viewport().is_input_handled(),
+		"选项收起来之后空格还被吞着 —— 房间里的「往下读」会失灵")
+
+	menu.queue_free()
+
+
+## 往视口里塞一次真的按键。走的是引擎那条输入管线，
+## 不是直接调处理函数 —— 不然验的是「我调的函数对不对」，
+## 而不是「玩家按下去会怎样」，而后者才是这条用例要守的东西。
+func _press_key(node: Node, code: Key) -> void:
+	var ev := InputEventKey.new()
+	ev.physical_keycode = code
+	ev.keycode = code
+	ev.pressed = true
+	node.get_viewport().push_input(ev)
 
 
 # ============================================================

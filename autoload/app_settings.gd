@@ -32,6 +32,11 @@ var pending_resume := false
 var pending_room := ""
 var pending_at := Vector2.INF
 
+## 下一屏从脊梁开头演起（标题屏的「走 动」走这条）。
+## 真的时候 pending_room / pending_at 一律作废 —— 开场那间房是 story_map
+## 说了算的，递纸条递过去反而会跟剧情抢地方。
+var pending_spine := false
+
 
 func _ready() -> void:
 	_load()

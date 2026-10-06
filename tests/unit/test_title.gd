@@ -28,6 +28,17 @@ static func _btn(got: Array, text: String) -> Dictionary:
 	return {}
 
 
+## 按前缀找。**只给「走 动」那颗用** —— 它的副题随里程碑改过
+## （里程碑 4 是「序 章 三 间」，里程碑 5 接上脊梁后是「序 章 至 第 一 章」）。
+## 这条用例要验的是那颗按钮**在不在**，不是它印的什么字；
+## 死抠全文的话，下次改文案又会红一次，而红的理由跟它想守的东西没关系。
+static func _btn_prefix(got: Array, prefix: String) -> Dictionary:
+	for b in got:
+		if str(b.get("text", "")).begins_with(prefix):
+			return b
+	return {}
+
+
 func test_the_menu_buttons_are_there() -> void:
 	var t: Variant = load(TITLE_SCENE).instantiate()
 	host.add_child(t)
@@ -42,7 +53,7 @@ func test_the_menu_buttons_are_there() -> void:
 
 	# 走动演示只在 rooms.json 真的存在时才摆出来 ——
 	# 摆一颗点了没反应的按钮，比少一颗更败好感。
-	var w := _btn(got, "走 动 · 序 章 三 间")
+	var w := _btn_prefix(got, "走 动")
 	ok(DataDB.rooms.is_empty() == w.is_empty(),
 		"「走 动」这颗按钮的有无，应当跟着 rooms.json 在不在走")
 
@@ -51,7 +62,7 @@ func test_the_menu_buttons_are_there() -> void:
 
 
 ## 【这一条是踩出来的，别删】
-## 焦点停在「走 动 · 序 章 三 间」上按回车，进去的却是纯 VN。
+## 焦点停在「走 动」那颗按钮上按回车，进去的却是纯 VN。
 ## 原因是 Button 只在**按下**那一半消费 ui_accept，松开那一半没有 ——
 ## 于是按钮跑了（_walk_demo），标题屏的兜底也跑了（_start_new），
 ## 后者的 change_scene_to_file 盖掉前者。

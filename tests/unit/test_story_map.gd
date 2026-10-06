@@ -434,3 +434,70 @@ func test_object_routed_expansions_live_in_the_right_room() -> void:
 		eq(r, str(want[sid]), "%s 应当在 %s 里" % [str(sid), str(want[sid])])
 		ok(not DataDB.hotspot_for_scene(str(sid)).is_empty(),
 			"%s 归热点路由，可是没有热点挂着它" % str(sid))
+
+
+# ============================================================
+#  走得到（里程碑 5 接上房间之后才成立的问题）
+# ============================================================
+
+## 从一间房出发，按出口走，能走到的所有房间（含它自己）。
+func _reachable_from(start: String) -> Dictionary:
+	var seen := {start: true}
+	var queue: Array = [start]
+	while not queue.is_empty():
+		var here := str(queue.pop_front())
+		for o in (DataDB.room(here).get("objects", []) as Array):
+			if str(o.get("kind", "")) != "exit":
+				continue
+			var to := str(o.get("to", ""))
+			if to.is_empty() or seen.has(to) or not DataDB.has_room(to):
+				continue
+			seen[to] = true
+			queue.append(to)
+	return seen
+
+
+## **每一对相邻的脊梁房间之间，都得有一条走得通的路。**
+##
+## 【这条为什么非有不可】
+## 房间屏的规则是：剧情停在缝里，玩家走到下一场戏所在的那间房，剧情才接上。
+## 于是 rooms.json 的出口图一旦断开，玩家就会**永远卡在那儿** ——
+## 不报错、不崩溃，只是站在一间屋子里，提示条上写着「剧情在『杨椒山祠』」，
+## 而那条路根本不存在。
+##
+## 单测「每间房有出口」是抓不到这个的：出口可能都通向别的房间，
+## 而剧情要的那一间偏偏到不了（第一章就有这种形状 ——
+## 从陈宅回书房要经过老宅，两跳）。
+##
+## 所以判据落在**可达性**上，不是「有没有出口」。
+## 用 DFS 走一遍出口图，问「从这间房出发，走得到那一间吗」。
+func test_every_step_of_the_spine_is_walkable() -> void:
+	var seq: Array = []
+	for id in DataDB.spine:
+		var r := DataDB.room_for_scene(str(id))
+		if not r.is_empty() and (seq.is_empty() or str(seq[seq.size() - 1]) != r):
+			seq.append(r)
+
+	ok(seq.size() >= 8, "脊梁一共只串起 %d 间房 —— 太少了，多半是 rooms 表缺了" % seq.size())
+
+	var stuck: Array = []
+	for i in range(1, seq.size()):
+		var from := str(seq[i - 1])
+		var to := str(seq[i])
+		if from == to:
+			continue
+		if not _reachable_from(from).has(to):
+			stuck.append("%s → %s" % [from, to])
+	ok(stuck.is_empty(),
+		"这些相邻的剧情房间之间走不通 —— 玩家会卡在前一间，剧情永远接不上：\n          %s"
+		% "\n          ".join(stuck))
+
+
+# 「每间房都从起点走得到」那条不在这儿 —— test_rooms.gd 的
+# test_every_room_is_reachable_from_the_start 已经在守了。
+# 一开始这里也写了一份，跑了一次才发现是重复：同一个事实两处断言，
+# 改出口图的时候要记得改两处，而漏掉的那一处不会报错，只会静静地不再守任何东西。
+#
+# 这一份守的是**另一件事**：可达性对了，顺序不一定对。
+# 上面那条只问「走得到吗」，不问「相邻的两场戏之间走得到吗」——
+# 出口图完全可能既连通、又让某一步走不通（绕不过去的那种连通）。

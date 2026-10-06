@@ -132,6 +132,26 @@ func skip() -> void:
 	_tween.finished.connect(_done)
 
 
+## 立刻收起来，不走淡出、不发信号。见 QuoteView.force_hide 的说明。
+##
+## 【为什么这一张比别的更需要它】
+## 别的呈现层是玩家自己要看的，测试里绕开就绕开了。章节卡不一样 ——
+## 它**横在对话前面**：不把它拿掉，对话框就一直被盖着。
+## 而拿掉它的两条路都要真的走帧（skip() 要 0.7 秒淡出，不按则要等满 2.4 秒），
+## headless 里帧是不动的 —— 于是「按了没反应」，测试驱动空转到卡死。
+func force_hide() -> void:
+	visible = false
+	_leaving = false
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+
+
+## 给测试看的：这张卡上写的是什么。判定「收尾卡到底出没出、是不是那张」
+## 只能靠它 —— visible 为真但内容是上一张的情况是会发生的（连播两张卡）。
+func debug_title() -> String:
+	return _title.text
+
+
 func _gui_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed:
 		skip()

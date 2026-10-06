@@ -20,6 +20,11 @@ signal chapter_changed(ch: String, ch_title: String)
 signal story_finished(ending_id: String)
 signal run_finished(reason: String)
 
+## 一场戏的拍子播完了、但**还没**迈到下一场 —— 停在缝里等界面发话。
+## 房间屏靠它把「读」和「走」分成两段：读一场，然后放玩家在房间里走走，
+## 等他自己走到下一场戏所在的那间房，再由 resume_next() 接上。
+signal scene_finished(scene_id: String)
+
 ## 走到切片边界就停。demo 用 true，将来正式版用 false。
 var slice_only := true
 
@@ -42,12 +47,28 @@ var vn_mode := false
 ## 关掉它（false）就是里程碑 3 那套纯线性 VN，用于逐字比对。
 var spine_mode := false
 
+## 场景之间停一下（见 scene_finished）。
+##
+## 【为什么这是个开关，而不是让房间屏自己数拍子】
+## 「这一场演完了」这件事只有推进器知道 —— 它才看得见 supersede 顶替、
+## 条件过滤、切片边界。房间屏若自己数 _queue.size()，数出来的是
+## **替换前**的拍数，遇到 c3_s4a 那种被顶替的场景就会早停或晚停一场。
+## 所以由推进器在它自己判定的那一刻停下来喊一声。
+var pause_between_scenes := false
+
 var running := false
 var awaiting_choice := false
 var scene_id := ""
 var idx := -1
 var beats: Array = []
 var last_bid := ""
+
+## 停在场景缝里。停着的时候 advance() 无效 —— 由 resume_next() 解。
+var _paused := false
+## 下一场戏演完还要不要再停。进场景时上膛，停下来时退膛 ——
+## 上膛必须发生在 _enter 里，不能放在 _pump 的循环顶上：
+## 那样 resume_next() 之后会立刻又停在同一处，永远迈不过去。
+var _pause_armed := false
 
 ## 上一次停下来的原因（"slice_end" / "no_next" / "bad_scene" …）。
 ## 单独留一个字段，是因为信号是瞬时的一发 —— 测试和存档界面都想事后查一下。
@@ -62,6 +83,7 @@ func begin(from_scene: String = "") -> void:
 		return
 	running = true
 	awaiting_choice = false
+	_paused = false
 	GameState.chapter = ""
 	_enter(id)
 	_pump()
@@ -75,6 +97,7 @@ func resume(from_scene: String, from_idx: int) -> void:
 		return
 	running = true
 	awaiting_choice = false
+	_paused = false
 	_enter(from_scene)
 	# 落在存档记的那一拍上（而不是从头再播一遍）。
 	idx = clampi(from_idx, 0, maxi(0, beats.size() - 1))
@@ -84,10 +107,24 @@ func resume(from_scene: String, from_idx: int) -> void:
 func stop() -> void:
 	running = false
 	awaiting_choice = false
+	_paused = false
+
+
+## 从场景缝里接着走。停在缝外调它什么也不做（不是错误：
+## 房间屏会在进房间时无条件喊一声，而多数进房间并不在缝里）。
+func resume_next() -> void:
+	if not running or not _paused:
+		return
+	_paused = false
+	_pump()
+
+
+func is_paused() -> bool:
+	return _paused
 
 
 func advance() -> void:
-	if not running:
+	if not running or _paused:
 		return
 	if awaiting_choice:
 		# 选项没选就想往下走 —— 这是界面接错了线，不是玩家的问题。
@@ -177,6 +214,9 @@ func _enter(id: String) -> void:
 	# 只有「同一场景内 bid 必须递增」这条能抓到它。
 	idx = 0
 
+	# 这一场演完要不要停 —— 上膛在这里，退膛在 _pump 里停下来那一刻。
+	_pause_armed = pause_between_scenes
+
 	# 【GameState 的书签必须在这里落】
 	# 自动存档挂在 scene_entered 信号上，而那个信号是下面才发的；
 	# 存档 meta 里的 scene/idx 读的正是 GameState。不在进场景这一刻把
@@ -199,6 +239,13 @@ func _enter(id: String) -> void:
 func _pump() -> void:
 	while running:
 		if idx >= beats.size():
+			if _pause_armed:
+				# 停在这一场的末尾。注意 running 保持真 —— 这不是收场，
+				# 只是屏住呼吸。界面上表现为「对话框收起，人还能走」。
+				_pause_armed = false
+				_paused = true
+				scene_finished.emit(scene_id)
+				return
 			var to := _next_scene()
 			if to.is_empty():
 				# 脊梁模式下「没下一场」就是切片演完了 —— 脊梁的末端就是切片末端。

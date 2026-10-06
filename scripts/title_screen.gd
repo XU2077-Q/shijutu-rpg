@@ -81,13 +81,13 @@ func _build() -> void:
 	if _continue_btn.disabled:
 		_continue_btn.tooltip_text = "还没有可以续的进度"
 	menu.add_child(_continue_btn)
-	# 走动演示。里程碑 4 的成品是「房间 + 行走 + 调查」这一层，
-	# 里程碑 5 才用 story_map 把它和脊梁接起来。
-	# 在那之前，两条路各自能走通，但互不认识 —— 与其假装它们已经是一体的，
-	# 不如在标题屏上把这件事摆明。做进一个入口里才是真的骗人。
+	# 房间屏那一版。里程碑 4 时它还只是「能走、能查」的演示，
+	# 里程碑 5 用 story_map 把它和脊梁接上了 —— 现在这条路是真的从头演到尾。
+	# 与「新 的 一 局」的区别就在这儿：那条是 VN 屏，从头按到底，没有房间。
+	# 两条路都得留着：VN 屏是 I6 的验证预言机（逐字比对靠它）。
 	if DataDB.has_room(DataDB.room_start):
-		var walk_btn := _menu_button("走 动 · 序 章 三 间", _walk_demo)
-		walk_btn.tooltip_text = "广和茶楼 · 宣武门外大街 · 都察院门前 —— 能走、能查、能交谈"
+		var walk_btn := _menu_button("走 动 · 序 章 至 第 一 章", _walk_demo)
+		walk_btn.tooltip_text = "在房间里走动、查看物件、与人交谈 —— 剧情按原著顺序推进"
 		menu.add_child(walk_btn)
 	menu.add_child(_menu_button("设 置", _open_settings))
 
@@ -232,11 +232,12 @@ func _continue() -> void:
 	get_tree().change_scene_to_file(VN_SCENE)
 
 
-## 走动演示：直接进序章的第一间房。
+## 走动演示：进房间屏，从脊梁开头演起。
 ## 不碰 pending_resume —— 那条路是给「续 前 一 局」的，两边别互相踩。
 func _walk_demo() -> void:
 	AppSettings.pending_resume = false
-	AppSettings.pending_room = DataDB.room_start
+	AppSettings.pending_spine = true
+	AppSettings.pending_room = ""
 	AppSettings.pending_at = Vector2.INF
 	get_tree().change_scene_to_file(ROOM_SCENE)
 

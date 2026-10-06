@@ -23,6 +23,34 @@ func _reset() -> void:
 	# 走架是全局单例，模式开关会漏给下一个用例 —— 显式关掉，
 	# 别让「上一个文件跑过什么」影响这一份的结果。
 	BeatRunner.spine_mode = false
+	# 【这一个漏掉过一次，代价是 56 条红】
+	# 第一版只清了 spine_mode。pause_between_scenes 留成真之后，
+	# 后面每个用 _walk_all() 的用例都卡在「停住了、advance() 无效」上 ——
+	# 而 _walk_all 的循环条件是 running，停住时 running 还是真，
+	# 于是它们一路空转到 WALK_LIMIT（一万次）才退出，
+	# 报出来的是「只走了 1 个场景」「停止原因是 walk_limit」，
+	# 看着像剧本断了，其实只是开关没关。
+	BeatRunner.pause_between_scenes = false
+	_drop_connections()
+
+
+## 把上一份用例挂在推进器上的信号全摘掉。
+##
+## 【不摘会怎样：一次假红，查起来像见鬼】
+## 推进器是 autoload，信号连上就一直在。上一个用例连的
+## `func(id): arr.append(id)` 会**继续往它自己的数组里追加** ——
+## 那个数组在下一个用例里是拿不到的，所以平时看不出来。
+## 但同一个用例里走两遍（比对「两种走法」）时，第二遍会让**第一遍的数组**
+## 也接着长 —— 于是报出来是「不停 42 场，一场一停 21 场」，
+## 而两边其实走的是一模一样的一条路。
+## 那一刻的直觉是「暂停改变了剧情」，真相是「数组被记了两遍」。
+func _drop_connections() -> void:
+	for sig in [BeatRunner.scene_entered, BeatRunner.beat_entered,
+			BeatRunner.choice_presented, BeatRunner.chapter_changed,
+			BeatRunner.story_finished, BeatRunner.run_finished,
+			BeatRunner.scene_finished]:
+		for c in (sig as Signal).get_connections():
+			(sig as Signal).disconnect(c["callable"])
 
 
 ## 从头走到停。每个选择都挑**第一个能选的**。
@@ -440,3 +468,165 @@ func test_stop_is_final() -> void:
 	BeatRunner.advance()
 	eq(BeatRunner.last_bid, before, "stop() 之后 advance() 还在推进")
 	ok(not BeatRunner.running, "stop() 之后 running 还是真")
+
+
+# ============================================================
+#  场景缝（房间屏靠它把「读」和「走」分成两段）
+# ============================================================
+#
+# 【为什么这件事值得单独一组用例】
+# 它是里程碑 5 唯一的**新时序**：以前推进器只有「在跑」和「收场」两态，
+# 现在多了第三态 —— 活着、但停住了。三态的东西最容易写成两态：
+# 少判一次就是「玩家点一下越过一整场戏」，多判一次就是「永远迈不过去」。
+# 两种都不会崩，只会让人卡住或者读漏。
+
+## 挑第一个能选的选项。整组用例共用，免得三处各写一遍走样。
+func _pick_first_enabled() -> int:
+	for o in BeatRunner.current_options():
+		if bool(o["enabled"]):
+			return int(o["index"])
+	return -1
+
+
+## 一直走到「停住」或者「收场」。
+func _run_until_paused() -> void:
+	var step := 0
+	while BeatRunner.running and not BeatRunner.is_paused() and step < WALK_LIMIT:
+		step += 1
+		if BeatRunner.awaiting_choice:
+			var pick := _pick_first_enabled()
+			if pick < 0:
+				return
+			BeatRunner.choose(pick)
+		else:
+			BeatRunner.advance()
+
+
+## 停在场景缝里：running 还是真、advance 无效、resume_next 才迈得过去。
+func test_pause_between_scenes_stops_at_the_boundary() -> void:
+	_reset()
+	BeatRunner.spine_mode = true
+	BeatRunner.pause_between_scenes = true
+	var stopped: Array = []
+	BeatRunner.scene_finished.connect(func(id: String) -> void: stopped.append(id))
+	# last_reason 是**上一次收场**留下的，begin() 不清它（它本来就不是本次运行的状态）。
+	# 不清就断言「停在缝里不该记成收场原因」，验的是上一个用例跑过什么。
+	BeatRunner.last_reason = ""
+	BeatRunner.begin(DataDB.spine_start())
+	_run_until_paused()
+
+	ok(BeatRunner.is_paused(), "走遍整条脊梁都没停过一次 —— pause_between_scenes 没接上")
+	if not BeatRunner.is_paused():
+		return
+
+	ok(BeatRunner.running, "停在缝里不该把 running 关掉 —— 那不是收场，是屏住呼吸")
+	eq(stopped.size(), 1, "应当只发了一次 scene_finished")
+	if stopped.size() == 1:
+		eq(str(stopped[0]), BeatRunner.scene_id, "报出来的应当是刚演完的那一场")
+	eq(BeatRunner.last_reason, "", "停在缝里不该记成收场原因")
+
+	# 停着的时候 advance() 必须无效。
+	# 不然玩家随便点一下就越过一整场戏 —— 而且他会以为是自己点快了，
+	# 不会觉得是坏了。这种「少读了一段还浑然不觉」最难查。
+	var bid := BeatRunner.last_bid
+	BeatRunner.advance()
+	eq(BeatRunner.last_bid, bid, "停在缝里 advance() 还在推进")
+	ok(BeatRunner.is_paused(), "停在缝里 advance() 把暂停解掉了")
+
+	# resume_next 才迈得过去
+	var was := BeatRunner.scene_id
+	BeatRunner.resume_next()
+	ok(BeatRunner.scene_id != was or not BeatRunner.running,
+		"resume_next() 之后应当已经迈到下一场（还停在 %s）" % was)
+	_reset()
+
+
+## 开关默认必须是关的。
+## 开着的话，里程碑 3 那批「一路走到底」的用例会全停在第一场 ——
+## 而那看起来像是剧本断了，不像是开关被人动了。
+func test_the_pause_is_off_by_default() -> void:
+	_reset()
+	ok(not BeatRunner.pause_between_scenes, "pause_between_scenes 默认应当是关的")
+
+	BeatRunner.spine_mode = true
+	var stops := {"n": 0}
+	BeatRunner.scene_finished.connect(func(_id: String) -> void: stops["n"] += 1)
+	BeatRunner.begin(DataDB.spine_start())
+	_walk_all()
+	eq(int(stops["n"]), 0, "开关关着的时候不该发 scene_finished")
+	_reset()
+
+
+## 一场一停，一直停到切片末尾。**停下来的地方必须跟不停的时候是同一批场景。**
+##
+## 【这条才是真正要守的东西】
+## 「停下来」本身容易验。难的是停下来之后**接着走，走到的还是原来那些地方**。
+## 少一场 = 玩家读漏一段；多一场 = 有一场被演了两遍（回头看会以为自己记错了）。
+## 所以拿同一个走法跑两遍（开关开 / 关），比对进过的场景序列 ——
+## 比对的是「开关没改变剧情」，而不是「我数出来是几场」。
+func test_pausing_does_not_change_which_scenes_get_played() -> void:
+	_reset()
+	BeatRunner.spine_mode = true
+	BeatRunner.pause_between_scenes = false
+	var straight: Array = []
+	BeatRunner.scene_entered.connect(func(id: String, _s: Dictionary) -> void: straight.append(id))
+	BeatRunner.begin(DataDB.spine_start())
+	_walk_all()
+	_reset()
+
+	BeatRunner.spine_mode = true
+	BeatRunner.pause_between_scenes = true
+	var paused: Array = []
+	var stopped: Array = []
+	BeatRunner.scene_entered.connect(func(id: String, _s: Dictionary) -> void: paused.append(id))
+	BeatRunner.scene_finished.connect(func(id: String) -> void: stopped.append(id))
+	BeatRunner.begin(DataDB.spine_start())
+
+	var guard := 0
+	while BeatRunner.running and guard < WALK_LIMIT:
+		guard += 1
+		if BeatRunner.awaiting_choice:
+			var pick := _pick_first_enabled()
+			if pick < 0:
+				break
+			BeatRunner.choose(pick)
+		elif BeatRunner.is_paused():
+			BeatRunner.resume_next()
+		else:
+			BeatRunner.advance()
+
+	eq(BeatRunner.last_reason, "slice_end", "一场一停地走，也该走到切片边界")
+
+	# 【为什么不直接 eq(str(paused), str(straight))】
+	# 两个二十多场的数组一起打出来，报告里只看得见开头那十几个 ——
+	# 而差异**从来不在开头**（开头总是对的，否则第一条用例就红了）。
+	# 第一版就是这么写的，报告里两行长得一模一样，得自己数着找。
+	# 改成报「第几场开始不一样、两边各是什么」，一眼就能看。
+	var diff := -1
+	for i in maxi(paused.size(), straight.size()):
+		var a := str(straight[i]) if i < straight.size() else "<没有>"
+		var b := str(paused[i]) if i < paused.size() else "<没有>"
+		if a != b:
+			diff = i
+			break
+	var where := ""
+	if diff >= 0:
+		var lo := maxi(0, diff - 2)
+		var hi := mini(diff + 2, maxi(straight.size(), paused.size()) - 1)
+		where = "\n          第 %d 场起不一样（前面都一样）：\n            不停：%s\n            一场一停：%s" \
+			% [diff, str(straight.slice(lo, hi + 1)), str(paused.slice(lo, hi + 1))]
+	eq(diff, -1,
+		"开关开 / 关两种走法进过的场景不一样 —— 停下再走改变了剧情"
+		+ "（不停 %d 场，一场一停 %d 场）%s" % [straight.size(), paused.size(), where])
+
+	# 同一场戏不许停两次：停两次 = 有一场被演了两遍。
+	var twice: Array = []
+	var seen := {}
+	for id in stopped:
+		if seen.has(id):
+			twice.append(str(id))
+		seen[id] = true
+	ok(twice.is_empty(), "这些场景停了两回：%s" % ", ".join(twice))
+	ok(stopped.size() >= 10,
+		"整条脊梁只停了 %d 次 —— 太少了，多半是中途断掉了" % stopped.size())
+	_reset()
