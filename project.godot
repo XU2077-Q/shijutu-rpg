@@ -31,6 +31,7 @@ CondEval="*res://autoload/cond_eval.gd"
 GameState="*res://autoload/game_state.gd"
 SaveManager="*res://autoload/save_manager.gd"
 BeatRunner="*res://autoload/beat_runner.gd"
+AppSettings="*res://autoload/app_settings.gd"
 
 [display]
 

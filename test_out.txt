@@ -1,0 +1,167 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[DataDB] 112 场景（原文 81 + 扩写 31）/ 2375 拍 / 5 结局 —— 校验通过
+WARNING: [DataDB] 暂无 story_map.json（手写文件，允许缺席）
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://autoload/data_db.gd:61)
+WARNING: [DataDB] 暂无 rooms.json（手写文件，允许缺席）
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://autoload/data_db.gd:61)
+WARNING: [DataDB] 暂无 quests.json（手写文件，允许缺席）
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _ready (res://autoload/data_db.gd:61)
+
+══════════════════════════════════════════════════════════
+  《时局图》RPG —— 测试
+══════════════════════════════════════════════════════════
+
+── test_data.gd  (20 个用例)
+   ✓ test_all_ast_ops_are_known
+   ✓ test_all_five_endings_have_bodies
+   ✓ test_datadb_has_no_errors
+   ✓ test_every_beat_is_addressable_and_unique
+   ✓ test_every_expansion_has_beats_and_a_kind
+   ✓ test_every_slice_scene_has_a_place
+   ✓ test_expansion_anchors_exist
+   ✓ test_metadata_counts
+   ✓ test_no_bbcode_metacharacters_in_prose
+   ✓ test_no_beat_holds_a_raw_function
+   ✓ test_original_beats_are_untouched_by_supersede
+   ✓ test_playable_equals_raw_when_no_supersede
+   ✓ test_scene_and_beat_counts
+   ✓ test_slice_expansions_are_the_expected_nine
+   ✓ test_slice_has_no_conditional_ast
+   ✓ test_slice_original_beat_count
+   ✓ test_slice_scenes_all_exist
+   ✓ test_start_scene_is_intro
+   ✓ test_supersede_actually_takes_effect_when_playing
+   ✓ test_world_has_no_orphan_scenes
+
+── test_cond_eval.gd  (15 个用例)
+   ✓ test_all_three_real_flag_names
+   ✓ test_and_short_circuits
+   ✓ test_comparison_operators
+   ✓ test_double_gate_boundaries
+   ✓ test_eval_next_passes_through_plain_string
+   ✓ test_has_ending
+   ✓ test_lit_and_bare_values
+   ✓ test_not_and_or
+   ✓ test_real_ast_nodes_all_evaluate_without_error
+   ✓ test_shape_and_double_gate
+   ✓ test_shape_flag
+   ✓ test_shape_flag_absent_is_false_not_error
+   ✓ test_shape_if_next
+   ✓ test_shape_template_lock_text
+   ✓ test_template_with_more_than_two_slots
+
+── test_save.gd  (12 个用例)
+   ✓ test_autosave_uses_auto_slot
+ERROR: Parse JSON failed. Error at line 0: Unexpected character
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_slot (res://autoload/save_manager.gd:118)
+       [1] test_corrupt_file_is_reported_not_crashed (res://tests/unit/test_save.gd:163)
+       [2] _run (res://tests/run_tests.gd:82)
+       [3] _ready (res://tests/run_tests.gd:32)
+   ✓ test_corrupt_file_is_reported_not_crashed
+ERROR: [SaveManager] 存档版本 6 比本程序(1)还新，不敢读
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _migrate (res://autoload/save_manager.gd:164)
+       [1] load_slot (res://autoload/save_manager.gd:121)
+       [2] test_future_version_is_refused (res://tests/unit/test_save.gd:188)
+       [3] _run (res://tests/run_tests.gd:82)
+       [4] _ready (res://tests/run_tests.gd:32)
+   ✓ test_future_version_is_refused
+   ✓ test_load_clears_previous_state
+   ✓ test_meta_is_readable_without_full_load
+   ✓ test_missing_slot_is_reported
+   ✓ test_no_tmp_file_left_behind
+   ✓ test_overwrite_is_clean
+   ✓ test_round_trip_preserves_everything
+   ✓ test_save_is_valid_json_on_disk
+   ✓ test_slot_listing
+   ✓ test_v0_migrates_to_current
+
+── test_font.gd  (4 个用例)
+   ✓ test_font_covers_every_character_in_the_script
+   ✓ test_font_covers_every_character_in_the_ui
+   ✓ test_font_file_is_present
+       （字体 24.0 MB —— 子集化的欠账还挂着，里程碑 7 处理）
+   ✓ test_font_is_not_absurdly_large
+
+── test_cast.gd  (7 个用例)
+   ✓ test_crowd_and_faces_do_not_overlap
+   ✓ test_every_listed_face_is_either_on_disk_or_marked_pending
+   ✓ test_every_portrait_on_disk_is_accounted_for
+       （切片之外还有 25 个人物没定立绘，属二至五章：洋行伙计（3 句）, 克纳普（21 句）, 账房先生（2 句）, 通州来客（6 句）, 林仲甫（3 句）, 张謇（52 句）, 周先生（5 句）, 贝牧师（14 句）, 张謇（信末）（2 句）, 王先生（2 句）, 学生（17 句）, 石印铺掌柜（2 句）, 庙会上的人（4 句）, 卖菜的老妇人（2 句）, 黄教谕（16 句）, 书铺伙计（3 句）, 卖凉茶的老人（3 句）, 梁先生（35 句）, 王乡绅（5 句）, 通译（1 句）, 王山长（4 句）, 邻人（2 句）, 唐才常（5 句）, 问官（1 句）, 梁启超（3 句））
+   ✓ test_every_speaker_in_the_slice_is_a_face_or_a_named_crowd_member
+   ✓ test_every_walker_has_a_complete_sprite_set
+   ✓ test_pending_list_has_no_stale_entries
+   ✓ test_walkers_are_also_faces
+
+── test_beat_runner.gd  (14 个用例)
+ERROR: [BeatRunner] 选项 0 的条件不满足，不该被选到
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] choose (res://autoload/beat_runner.gd:100)
+       [1] test_a_locked_option_is_marked_and_cannot_be_chosen (res://tests/unit/test_beat_runner.gd:403)
+       [2] _run (res://tests/run_tests.gd:82)
+       [3] _ready (res://tests/run_tests.gd:32)
+   ✓ test_a_locked_option_is_marked_and_cannot_be_chosen
+WARNING: [BeatRunner] 正在等选择，advance() 被忽略了
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] advance (res://autoload/beat_runner.gd:81)
+       [1] test_advance_is_ignored_while_awaiting_a_choice (res://tests/unit/test_beat_runner.gd:296)
+       [2] _run (res://tests/run_tests.gd:82)
+       [3] _ready (res://tests/run_tests.gd:32)
+WARNING: [BeatRunner] 正在等选择，advance() 被忽略了
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] advance (res://autoload/beat_runner.gd:81)
+       [1] test_advance_is_ignored_while_awaiting_a_choice (res://tests/unit/test_beat_runner.gd:297)
+       [2] _run (res://tests/run_tests.gd:82)
+       [3] _ready (res://tests/run_tests.gd:32)
+   ✓ test_advance_is_ignored_while_awaiting_a_choice
+   ✓ test_choosing_applies_gain_and_flag
+   ✓ test_cursor_follows_the_walk
+   ✓ test_every_beat_type_in_the_slice_has_text
+   ✓ test_every_logged_beat_is_verbatim_from_the_script
+   ✓ test_every_presented_beat_gets_logged
+   ✓ test_logged_bids_advance_within_each_scene
+   ✓ test_offered_options_match_the_beat
+   ✓ test_scene_transitions_are_wired
+   ✓ test_slice_walk_covers_both_chapters
+   ✓ test_slice_walk_never_leaves_the_slice
+   ✓ test_slice_walk_stops_at_the_boundary_not_at_the_end
+   ✓ test_stop_is_final
+
+── test_vn_screen.gd  (14 个用例)
+   ✓ test_autosave_lands_on_scene_entry_and_choices
+   ✓ test_chapter_cards_are_shown
+   ✓ test_choice_buttons_hold_their_text
+   ✓ test_every_full_screen_layer_covers_the_screen
+   ✓ test_no_visible_layer_collapses_to_nothing
+   ✓ test_nothing_is_left_open_at_the_end
+   ✓ test_quotes_and_letters_are_shown
+   ✓ test_speaker_plate_appears_only_for_speech
+   ✓ test_the_dialogue_panel_is_actually_on_screen
+   ✓ test_the_name_plate_does_not_cover_the_text
+   ✓ test_the_plate_names_the_right_speaker
+   ✓ test_the_portrait_slots_are_on_screen
+   ✓ test_the_queue_never_strands_beats
+   ✓ test_the_screen_plays_the_same_slice_as_the_bare_engine
+
+── test_title.gd  (4 个用例)
+   ✓ test_continue_follows_the_autosave
+   ✓ test_settings_panel_applies_and_shows
+   ✓ test_settings_really_persist
+   ✓ test_the_three_buttons_are_there
+
+══════════════════════════════════════════════════════════
+  全绿 —— 90 个用例 / 308 条断言
+══════════════════════════════════════════════════════════

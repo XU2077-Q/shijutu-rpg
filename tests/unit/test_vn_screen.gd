@@ -419,3 +419,102 @@ func test_no_visible_layer_collapses_to_nothing() -> void:
 
 	screen.queue_free()
 	await host.get_tree().process_frame
+
+
+# ============================================================
+#  选项按钮的几何 —— 文字不许溢出框
+# ============================================================
+#
+# 【这条是怎么来的】
+# 浏览器截图里，选项的文字垂在按钮框外面，提示行被裁掉半截。
+# 病根：Button 不是容器，不会被子内容撑大，而 custom_minimum_size.y
+# 给的是 0 —— 按钮只剩样式盒那 32px 高。headless 的用例全绿，
+# 因为它们查的是「选项文字对不对」，不是「字画在了哪里」。
+# 修法是按内容算高（内层 VBox 的最小尺寸 + 上下内边距 32），
+# 这条用例就是修法的看守：谁改了布局，字再溢出去，这里先红。
+func test_choice_buttons_hold_their_text() -> void:
+	_reset()
+	var menu: Variant = load("res://scripts/ui/choice_menu.gd").new()
+	host.add_child(menu)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	# 最长选项 24 字 + 一行提示；再塞一个无提示的短选项对照。
+	var opts := [
+		{"index": 0, "text": "去杨椒山祠。举子们都在往那边去。", "hint": "亲眼看见愤怒是什么样子", "enabled": true, "lock": ""},
+		{"index": 1, "text": "回客栈。", "hint": "", "enabled": true, "lock": ""},
+	]
+	menu.present("你打算怎么办？", opts)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	var buttons: Array = menu._buttons
+	ok(buttons.size() == 2, "应当摆出两个选项按钮，实得 %d" % buttons.size())
+	for b: Button in buttons:
+		var min_size: Vector2 = b.get_combined_minimum_size()
+		ok(b.size.y >= min_size.y - 0.5,
+			"按钮实际高度 %d 小于内容需要 %d —— 文字要溢出去了" % [int(b.size.y), int(min_size.y)])
+		# 每个文字标签都得完整待在自己的按钮框里。
+		for l: Label in b.find_children("*", "Label", true, false):
+			if l.text.strip_edges().is_empty():
+				continue
+			var lr: Rect2 = l.get_global_rect()
+			var br: Rect2 = b.get_global_rect()
+			ok(br.encloses(lr.grow(1.0)),
+				"「%s」的文字框 %s 跑出了按钮框 %s" % [l.text.left(8), lr, br])
+			var need: Vector2 = l.get_combined_minimum_size()
+			ok(l.size.y >= need.y - 0.5,
+				"标签高 %d 不足内容高 %d —— 行数被压掉了" % [int(l.size.y), int(need.y)])
+
+	menu.queue_free()
+	await host.get_tree().process_frame
+
+
+# ============================================================
+#  自动存档 —— 「续 前 一 局」的地基
+# ============================================================
+#
+# 标题屏的「续 前 一 局」读的是 auto 档；VN 屏在场景进门和选项摆出时
+# 各落一次。这条用例盯着两件事：
+#   一、真的会落（没人调 autosave，按钮就永远是灰的，这条断过一次）；
+#   二、落进去的书签跟 GameState 一致 —— 续玩要能精确回到那一拍。
+# 用例结束把 auto 档清掉，别把起跑线留给下一个人。
+func test_autosave_lands_on_scene_entry_and_choices() -> void:
+	_reset()
+	SaveManager.delete_slot("auto")
+
+	var screen: Variant = load(VN_SCENE).instantiate()
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+	# 场景进门就应有档，且书签 = 当前场景。
+	var frames := 0
+	while not SaveManager.has_slot("auto") and frames < FRAME_LIMIT:
+		screen.press()
+		await host.get_tree().process_frame
+		frames += 1
+	ok(SaveManager.has_slot("auto"), "走过开场还没落自动存档 —— 挂钩断了")
+	if SaveManager.has_slot("auto"):
+		var meta: Dictionary = SaveManager.peek("auto")
+		ok(str(meta.get("scene", "")) == GameState.scene,
+			"档里场景 %s 跟 GameState 的 %s 对不上" % [meta.get("scene"), GameState.scene])
+
+	# 走到第一个选择处（选项摆出时又落一次档），书签应停在选项那拍。
+	frames = 0
+	while not screen.choices_open() and frames < FRAME_LIMIT:
+		screen.press()
+		await host.get_tree().process_frame
+		frames += 1
+	ok(screen.choices_open(), "一直没等到选项")
+	if screen.choices_open():
+		var meta2: Dictionary = SaveManager.peek("auto")
+		ok(int(meta2.get("idx", -1)) == GameState.idx,
+			"档里 idx %d 跟 GameState 的 %d 对不上 —— 续玩会跳拍"
+			% [int(meta2.get("idx", -1)), GameState.idx])
+		ok(str(meta2.get("scene", "")) == GameState.scene,
+			"选项处的场景书签不对：档里 %s，实际 %s" % [meta2.get("scene"), GameState.scene])
+
+	screen.queue_free()
+	await host.get_tree().process_frame
+	SaveManager.delete_slot("auto")

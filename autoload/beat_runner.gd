@@ -164,6 +164,14 @@ func _enter(id: String) -> void:
 	# 只有「同一场景内 bid 必须递增」这条能抓到它。
 	idx = 0
 
+	# 【GameState 的书签必须在这里落】
+	# 自动存档挂在 scene_entered 信号上，而那个信号是下面才发的；
+	# 存档 meta 里的 scene/idx 读的正是 GameState。不在进场景这一刻把
+	# 书签拨到位（idx 归零），自动存档就会拿着**上一个场景的最后一拍**
+	# 当本场景的书签 —— 续玩时 clamp 到末尾，新场景的第一段永远跳不过去。
+	GameState.scene = id
+	GameState.idx = 0
+
 	var sc: Dictionary = DataDB.scenes.get(id, {})
 	var ch := str(sc.get("ch", ""))
 	if not ch.is_empty() and ch != GameState.chapter:
@@ -203,6 +211,9 @@ func _pump() -> void:
 
 func _present(bid: String, beat: Dictionary) -> void:
 	last_bid = bid
+	# 书签跟着走：自动存档在 choice_presented 时落盘，续玩要能精确
+	# 回到「选项正摆着」的那一拍，靠的就是这个 idx。
+	GameState.idx = idx
 	match str(beat.get("t", "")):
 		"choice":
 			awaiting_choice = true

@@ -16,6 +16,10 @@ extends Control
 signal chosen(index: int)
 
 const BTN_W := 760
+## 按钮内文字区宽度 = 按钮宽 - 两侧内边距（offsets left 28 / right 28）。
+## autowrap 的 Label 必须给它一个**定宽**，它才知道自己该折成几行、
+## 报多高的最小尺寸 —— 不给的话它按当前矩形（还可能是 0）算，量出来的高度是错的。
+const INNER_W := BTN_W - 56
 
 var _dim: ColorRect
 var _prompt_box: PanelContainer
@@ -128,6 +132,7 @@ func _make_button(o: Dictionary) -> Button:
 	Paper.style_label(t, 26, Paper.INK if enabled else Paper.INK_FAINT)
 	t.text = str(o["text"])
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.custom_minimum_size = Vector2(INNER_W, 0)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(t)
 
@@ -139,10 +144,34 @@ func _make_button(o: Dictionary) -> Button:
 		Paper.style_label(s, 19, Paper.CINNABAR if not enabled else Paper.INK_FAINT)
 		s.text = sub
 		s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		s.custom_minimum_size = Vector2(INNER_W, 0)
 		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(s)
 
+	# 【按钮的高度必须自己算，而且要用字体量】
+	# Button 不是容器 —— 它**不会**被子内容撑大，custom_minimum_size.y 给 0 的话，
+	# 按钮就只剩样式盒上下内边距那 32px 高，里面的字垂直溢出框外
+	# （Label 默认不裁剪，字画在框底下，截图里「字掉在按钮外面」就是它）。
+	#
+	# 【为什么不用 col.get_combined_minimum_size()】
+	# 那条路在**树外**是死的：autowrap 的 Label 不进场景树就不成形，
+	# 报出来的最小高度是 0 —— 按钮还是 32。这里用字体直接量：
+	# 同一款字体、同一个宽度（INNER_W），量出来的折行高度跟真实渲染一致，
+	# 在不在树上都是同一个数。几何的看守在 test_vn_screen.gd。
+	var content := _text_height(t.text, 26)
+	if not sub.strip_edges().is_empty():
+		content += 4 + _text_height(sub, 19)   # 4 = col 的 separation
+	b.custom_minimum_size = Vector2(BTN_W, content + 32)
+
 	return b
+
+
+func _text_height(text: String, font_size: int) -> float:
+	var f := Paper.font()
+	if f == null:
+		# 字体都加载不出来的时候，游戏早就在 Boot 那屏停了 —— 这里只是兜底。
+		return font_size * 1.5
+	return f.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, INNER_W, font_size).y
 
 
 func _style(bg: Color, border: Color) -> StyleBoxFlat:

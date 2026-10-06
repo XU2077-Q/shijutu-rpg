@@ -56,6 +56,7 @@ func build_save(world: Dictionary = {}, quests: Dictionary = {}) -> Dictionary:
 		"meta": {
 			"ch": GameState.chapter,
 			"scene": GameState.scene,
+			"idx": GameState.idx,
 			"t": int(Time.get_unix_time_from_system()),
 			"last": _last_line(),
 			"shen": int(GameState.stats.get("shen", 0)),

@@ -185,10 +185,15 @@ async function main() {
     await cdp.shot(path.join(OUT, "00-没开机.png"));
     report.shots.push("00-没开机.png");
   } else {
-    // 开机之后再稳两帧，让第一章的字先画上去
+    // 开机之后再稳两帧，让标题屏画上去
     await sleep(1500);
-    await cdp.shot(path.join(OUT, "01-开场.png"));
-    report.shots.push("01-开场.png");
+    await cdp.shot(path.join(OUT, "01-标题屏.png"));
+    report.shots.push("01-标题屏.png");
+
+    // 标题屏上「新 的 一 局」默认拿着焦点 —— 回车就是开局。
+    // 等两秒让场景切换、第一拍摆出来，再进推进循环。
+    await cdp.key("Enter", "Enter", 13);
+    await sleep(2000);
 
     // 按空格推进。用「点击 + 空格」交替 —— 两条输入通路都要走到，
     // 网页上鼠标那条尤其重要（玩家十有八九是用鼠标点的）。
@@ -196,7 +201,7 @@ async function main() {
     // 帧数由 argv[4] 给，默认 100。100 下大约走到第一章中段，
     // 章节卡、引文、书信、选择、立绘都该出场过了。
     const steps = Number(process.argv[4] || 100);
-    const shotAt = new Set([3, 10, 20, 34, 50, 70, 90, steps]);
+    const shotAt = new Set([3, 10, 20, 34, 50, 70, 80, 85, 90, steps]);
     const beats = [];
     for (let i = 0; i < steps; i++) {
       if (i % 2 === 0) await cdp.key(" ", "Space", 32);

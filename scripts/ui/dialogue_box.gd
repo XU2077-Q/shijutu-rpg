@@ -16,7 +16,7 @@ extends Control
 signal typing_finished
 
 ## 每秒打几个字。中文 40~50 是舒适区：再快就糊，再慢就等。
-const CPS := 45.0
+## 默认值与可调范围在 AppSettings（标题屏的「设 置」里改，落盘持久）。
 ## 至少打这么久。短句（「是。」）如果按字数算只有 0.05 秒，
 ## 等于瞬间蹦出来，反而让人以为漏了一拍。
 const MIN_DURATION := 0.28
@@ -215,7 +215,7 @@ func _start_typing() -> void:
 	_body.visible_ratio = 0.0
 
 	var n := _body.get_total_character_count()
-	var dur := maxf(MIN_DURATION, float(n) / CPS)
+	var dur := maxf(MIN_DURATION, float(n) / AppSettings.cps)
 	_tween = create_tween()
 	_tween.tween_property(_body, "visible_ratio", 1.0, dur)
 	_tween.finished.connect(_finish_typing)

@@ -7,11 +7,10 @@ extends Node
 ## Web 版尤其需要这一屏：不然浏览器里就是一片黑，什么线索都没有。
 ##
 ## 【标题画面】
-## 将来这一屏会变成标题画面（新游戏 / 继续 / 设置），
-## 由它再决定进 VN 屏还是读档。现在直接进 VN 屏 ——
-## 垂直切片的目的是让人**点开就能读到剧本**，中间不该隔一层菜单。
+## 数据合格后进标题屏（scenes/title），由它决定新的一局还是续前一局；
+## 设置（文字速度 / 全屏）也在那边。这一屏只剩一件事：把数据的门关好。
 
-const VN_SCENE := "res://scenes/vn/vn_screen.tscn"
+const TITLE_SCENE := "res://scenes/title/title.tscn"
 
 
 func _ready() -> void:
@@ -23,7 +22,7 @@ func _ready() -> void:
 	# 必须延后一帧。在 _ready 里直接换场景会撞上「父节点正在增删子节点」——
 	# 那个错只在启动时出现一次，很容易被当成无关的噪音忽略掉，
 	# 然后游戏**根本没换场景**，黑屏，而日志里只有一行看起来像警告的 ERROR。
-	get_tree().change_scene_to_file.call_deferred(VN_SCENE)
+	get_tree().change_scene_to_file.call_deferred(TITLE_SCENE)
 
 
 ## 数据坏了。把每一条都摆出来 —— 这一屏只有开发者会看到，

@@ -46,16 +46,23 @@ func _ready() -> void:
 	BeatRunner.choice_presented.connect(_on_choice_presented)
 	BeatRunner.run_finished.connect(_on_run_finished)
 
-	# 自动开局。将来这一屏前面会有一张标题屏，那时改成由标题屏调 begin()。
+	# 开局由标题屏决定：新的一局直接 begin；续前一局先把存档灌回
+	# GameState（标题屏里 SaveManager.load_slot 已做），再从书签处 resume。
+	# AppSettings.pending_resume 是两个屏之间递纸条的唯一通道 ——
+	# 换场景会重建这棵树，任何成员变量都递不过去。
 	call_deferred("_begin")
 
 
 func _begin() -> void:
-	GameState.reset()
 	_portraits.clear()
 	_pending.clear()
 	_run_over = false
-	BeatRunner.begin()
+	if AppSettings.pending_resume:
+		AppSettings.pending_resume = false
+		BeatRunner.resume(GameState.scene, GameState.idx)
+	else:
+		GameState.reset()
+		BeatRunner.begin()
 
 
 # ============================================================
@@ -183,6 +190,11 @@ func _on_scene_entered(_id: String, scene: Dictionary) -> void:
 		_box.hide_box()
 		_card.present(scene["card"])
 
+	# 自动存档。每个场景进门落一次（书签 = 场景头），
+	# 选项摆出来时再落一次（书签 = 选项那拍，续玩正好停在选项前）。
+	# 全程 32 场景 / 9 选项，写的是几 KB 的 JSON，量不大。
+	SaveManager.autosave()
+
 
 func _on_beat_entered(bid: String, beat: Dictionary) -> void:
 	if _modal != Modal.NONE:
@@ -196,6 +208,8 @@ func _on_choice_presented(bid: String, beat: Dictionary) -> void:
 		_pending.append({"bid": bid, "beat": beat, "choice": true})
 		return
 	_render_choice(beat)
+	# 选项正摆着的那一刻落一次档 —— 续玩回到「选项在眼前」的现场。
+	SaveManager.autosave()
 
 
 func _on_run_finished(reason: String) -> void:

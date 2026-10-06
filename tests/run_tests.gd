@@ -20,6 +20,7 @@ const TEST_SCRIPTS := [
 	"res://tests/unit/test_cast.gd",
 	"res://tests/unit/test_beat_runner.gd",
 	"res://tests/unit/test_vn_screen.gd",
+	"res://tests/unit/test_title.gd",
 ]
 
 ## 跳过这些从基类继承来的方法（它们不是用例）
