@@ -44,6 +44,31 @@ func _build() -> void:
 	_list.custom_minimum_size = Vector2(380, 0)
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.item_selected.connect(_on_selected)
+	# ItemList 默认皮是深灰底 + 引擎默认字体 —— 默认字体没有中文，
+	# 目录会整列豆腐块（浏览器里一眼全是方块）。字体、皮、选中色全换成本作的。
+	_list.add_theme_font_override("font", Paper.font())
+	_list.add_theme_font_size_override("font_size", 18)
+	_list.add_theme_color_override("font_color", Paper.INK_SOFT)
+	_list.add_theme_color_override("font_selected_color", Paper.CINNABAR)
+	_list.add_theme_constant_override("v_separation", 6)
+	var list_panel := Paper.paper_box(Paper.PAPER, Paper.PAPER_EDGE, 1)
+	_list.add_theme_stylebox_override("panel", list_panel)
+	var sel := StyleBoxFlat.new()
+	sel.bg_color = Color(0.55, 0.12, 0.07, 0.12)
+	sel.content_margin_left = 10
+	sel.content_margin_right = 10
+	sel.content_margin_top = 3
+	sel.content_margin_bottom = 3
+	_list.add_theme_stylebox_override("selected", sel)
+	_list.add_theme_stylebox_override("selected_focus", sel)
+	var hov := StyleBoxFlat.new()
+	hov.bg_color = Color(0.3, 0.22, 0.12, 0.07)
+	hov.content_margin_left = 10
+	hov.content_margin_right = 10
+	hov.content_margin_top = 3
+	hov.content_margin_bottom = 3
+	_list.add_theme_stylebox_override("hover", hov)
+	_list.add_theme_stylebox_override("hover_selected", sel)
 	hb.add_child(_list)
 
 	_body = RichTextLabel.new()

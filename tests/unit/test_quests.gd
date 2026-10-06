@@ -143,16 +143,22 @@ func test_quest_log_opens_from_the_pause_menu() -> void:
 		"点下去任务一览应当打开")
 	ok(not bool((p.get("_panel") as Control).visible), "主面板应当让出来")
 
-	# Esc 先关子面板，不直接继续游戏。真实输入流程里事件先到最上层的子面板
-	# （viewport 倒序派 _input），所以这里直接问它，再验主菜单的反应。
+	# Esc 先关子面板，回主面板，不能连带把暂停整个关掉。
+	#
+	# 【必须走真 viewport 派发】事件先到最上层的子面板（viewport 倒序派
+	# _input），**同一帧**再到 PauseMenu。早先测试直接调子面板的 _input，
+	# 结果真 bug 漏掉了：子面板关了自己之后，主菜单这一层看 _sub_open()
+	# 已是 false，就把「Esc = 继续游戏」也触发了 —— 按一下 Esc 三层全关。
+	var resumed := [false]
+	p.resumed.connect(func() -> void: resumed[0] = true)
 	var ev := InputEventKey.new()
 	ev.physical_keycode = KEY_ESCAPE
 	ev.pressed = true
+	host.get_viewport().push_input(ev, false)
 	var log_panel: Variant = p.get("_quests")
-	log_panel._input(ev)
-	ok(bool(p.is_open()), "Esc 关的是任务一览，暂停菜单还开着")
 	ok(not bool((log_panel as Control).visible), "任务一览应当已关")
 	ok(bool((p.get("_panel") as Control).visible), "子面板关了，主面板应当回来")
+	ok(bool(p.is_open()) and not resumed[0], "Esc 关的是任务一览，暂停菜单必须还开着")
 	p.queue_free()
 	await host.get_tree().process_frame
 

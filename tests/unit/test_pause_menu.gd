@@ -51,6 +51,34 @@ func test_pause_menu_starts_closed_and_opens() -> void:
 	await host.get_tree().process_frame
 
 
+func test_pause_panel_fits_the_720_viewport() -> void:
+	# 八颗按钮 + 标题曾经因为 paper_box 的 20px 边距和 VF 字体行高被顶到
+	# 720 视口外面去：末颗「返回标题」整颗被裁，浏览器里点不到。
+	# 哑渲染器不出像素，但排版照做 —— 越界在这里就该被抓住。
+	var p := PauseMenu.new()
+	host.add_child(p)
+	await host.get_tree().process_frame
+	p.open()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	# 测试环境的视口可能不是 720 高，所以不拿全局 y 比 720 —— 守的不变量是：
+	# 面板的最小高度 ≤ 720（游戏视口高），且每颗按钮都完整落在面板内。
+	# 面板垂直居中，min 高度放得进 720，居中后任何一颗都不会被裁。
+	var panel: PanelContainer = p.get("_panel")
+	var min_h := panel.get_combined_minimum_size().y
+	ok(min_h <= 720.0,
+		"暂停面板最小高度 %d 超过 720 视口，末颗按钮会被裁" % int(min_h))
+	for b in p.find_children("*", "Button", true, false):
+		var r := (b as Button).get_global_rect()
+		var top := r.position.y - panel.position.y
+		var bottom := r.end.y - panel.position.y
+		ok(top >= 0.0 and bottom <= panel.size.y,
+			"按钮「%s」越出面板（相对 y %.0f..%.0f / 面板高 %.0f）"
+			% [(b as Button).text, top, bottom, panel.size.y])
+	p.queue_free()
+	await host.get_tree().process_frame
+
+
 func test_esc_toggles_pause_in_the_room_instead_of_leaving() -> void:
 	var v: Variant = await _open_room("r_tea")
 	var p: Variant = v.get("_pause")
@@ -71,7 +99,7 @@ func test_esc_toggles_pause_in_the_room_instead_of_leaving() -> void:
 		"菜单开着时推进不该落到游戏（那句提示不该被点亮）")
 	v.set("_spine", false)
 
-	# 菜单面板开着时 Esc = 继续（子面板都没开）
+	# 菜单面板开着、子面板都没开时 Esc = 继续。
 	p._input(_key(KEY_ESCAPE))
 	ok(not bool(p.is_open()), "再按 Esc 应当继续游戏")
 
@@ -199,6 +227,15 @@ func test_markers_hide_themselves_before_reveal() -> void:
 			has_unknown = true
 	ok(has_q, "一个都没揭时应当有「？」")
 	ok(has_unknown, "一个都没揭时应当写「尚未显现」")
+
+	# 六张卡曾经排到面板外面去：三行 188 高的卡 + 标题 > 720 视口里
+	# 640 高的面板，第三行整行冲出纸边。哑渲染器不出像素，但排版数字会说话：
+	# 面板在 720 高下内容区 = 720 - 80（上下边距）- 40（纸边距）= 600。
+	await host.get_tree().process_frame
+	var panel: PanelContainer = m.get_child(1)
+	var col: VBoxContainer = panel.get_child(0)
+	ok(col.get_combined_minimum_size().y <= 600.0,
+		"时局图六张卡的最小高度 %.0f 超出 720 视口面板的 600" % col.get_combined_minimum_size().y)
 
 	# 揭一个，它的名字和说明就得露出来
 	var first_id := str(DataDB.markers[0].get("id", ""))

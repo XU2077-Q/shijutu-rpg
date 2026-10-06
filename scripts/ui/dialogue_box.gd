@@ -80,6 +80,14 @@ func _build_box() -> void:
 	_box.add_child(_body)
 
 
+## 房间屏专用：把纸换成不透明的。
+## 默认是 94% 的半透明纸 —— VN 里立绘在框外左侧，透一点背景是水墨味道；
+## 房间里小人会走到对话框背后，半身透纸像个鬼影（浏览器自查截图里抓到的），
+## 所以房间屏开局调这一下。
+func set_opaque_paper() -> void:
+	_box.add_theme_stylebox_override("panel", Paper.paper_box(Paper.PAPER_LIGHT, Paper.PAPER_EDGE, 2))
+
+
 ## 名条压在框的左上角，**骑在边框上** —— 骑上去才像贴的一张签，
 ## 完全在框内就像表格的一格。
 ##

@@ -269,6 +269,9 @@ func _on_spine_scene_finished(id: String) -> void:
 		_resume_spine()
 		return
 
+	# 真停在缝里了：对话框已收，最后一句说话人的立绘也得撤 ——
+	# 不然自由走动时一个等身大人像会一直杵在房间左边。
+	_portraits.clear()
 	_update_hint()
 
 
@@ -419,11 +422,15 @@ func _build() -> void:
 	_place = PanelContainer.new()
 	_place.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_place.add_theme_stylebox_override("panel", Paper.translucent_paper(0.86))
-	_place.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	_place.offset_left = 40
-	_place.offset_top = 32
-	_place.offset_bottom = 88
-	_place.offset_right = 560
+	# 右上角：左上角是任务条的地盘。居中试过 —— 牌牌左半截被后画的任务条
+	# 压住（浏览器自查截图里「北京」两个字整段消失）。右上离任务条最远，
+	# 也是地点牌常见的位置。宽 560 容得下最长的「北京·宣武门外·广和茶楼　·
+	# 　光绪二十一年三月廿三」。
+	_place.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_place.offset_left = -588
+	_place.offset_top = 26
+	_place.offset_bottom = 74
+	_place.offset_right = -28
 	add_child(_place)
 
 	_place_label = Label.new()
@@ -448,8 +455,13 @@ func _build() -> void:
 	_prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_prompt.add_child(_prompt_label)
 
+	# 小人可能站在对话框正背后：半透明纸会把像素小人透成鬼影，这里用不透明纸。
+	# 注意次序：set_opaque_paper 改的是 _build_box() 里建的内层面板，
+	# 那层在 _ready() 里才出生 —— add_child 之前调等于打在 null 上
+	# （浏览器发行版里直接踩成 wasm「memory access out of bounds」）。
 	_box = DialogueBox.new()
 	add_child(_box)
+	_box.set_opaque_paper()
 
 	_note = NoteView.new()
 	add_child(_note)
@@ -1018,6 +1030,8 @@ func _finish_playing() -> void:
 	_expansion = false
 	_queue.clear()
 	_box.hide_box()
+	# 跟脊梁停缝同一类问题：NPC 的话读完了，人不能还杵在左边。
+	_portraits.clear()
 	_update_prompt()
 	# 读完一段，提示条要改回「该去哪儿 / 能走」。剧情多半还停在缝里。
 	_update_hint()

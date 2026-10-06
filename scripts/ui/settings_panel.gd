@@ -122,3 +122,10 @@ func open() -> void:
 func close_panel() -> void:
 	visible = false
 	closed.emit()
+
+
+func _input(e: InputEvent) -> void:
+	# 跟其他暂停子面板一条规矩：Esc 关自己，回主面板。
+	if visible and e.is_action_pressed("menu"):
+		close_panel()
+		get_viewport().set_input_as_handled()

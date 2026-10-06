@@ -20,6 +20,11 @@ const VN_SCENE := "res://scenes/vn/vn_screen.tscn"
 const ROOM_SCENE := "res://scenes/world/room.tscn"
 
 var _panel: PanelContainer
+## 本个输入事件里是否有子面板刚关掉。viewport 倒序派 _input：子面板先收到
+## Esc、关自己，主菜单同一拍才收到 —— 没这个标记就会把「回主面板」误判成
+## 「没有子面板，继续游戏」。当拍消费；鼠标关闭子面板时没有同拍 Esc，
+## 帧尾延迟清一道，免得标记留到下一键。
+var _sub_just_closed := false
 var _save_slots: SaveSlots
 var _marker: MarkerOverview
 var _notes: NotesBrowser
@@ -50,7 +55,7 @@ func _build() -> void:
 		_panel.position = (size - _panel.size) * 0.5)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 12)
+	col.add_theme_constant_override("separation", 10)
 	_panel.add_child(col)
 
 	var title := Label.new()
@@ -77,14 +82,23 @@ func _build() -> void:
 func _button(text: String, handler: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(320, 48)
+	b.custom_minimum_size = Vector2(320, 46)
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_override("font", Paper.font())
 	b.add_theme_font_size_override("font_size", 22)
 	b.add_theme_color_override("font_color", Paper.INK)
 	b.add_theme_color_override("font_hover_color", Paper.CINNABAR_HI)
-	b.add_theme_stylebox_override("normal", Paper.paper_box(Paper.PAPER, Paper.PAPER_EDGE, 1))
-	b.add_theme_stylebox_override("hover", Paper.paper_box(Paper.PAPER, Paper.CINNABAR, 1))
+	# paper_box 默认上下各 20 的内容边距 —— 配上 VF 字体偏大的行高，
+	# 单颗按钮会被顶到 65px 高，八颗加标题超出 720 视口，末颗被裁掉。
+	# 菜单按钮自己收一份紧边距（八颗总高 ≈ 46*8 + 间隔）。
+	var normal := Paper.paper_box(Paper.PAPER, Paper.PAPER_EDGE, 1)
+	normal.content_margin_top = 5
+	normal.content_margin_bottom = 5
+	var hover := Paper.paper_box(Paper.PAPER, Paper.CINNABAR, 1)
+	hover.content_margin_top = 5
+	hover.content_margin_bottom = 5
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
 	b.pressed.connect(handler)
 	return b
 
@@ -119,6 +133,14 @@ func _to_title() -> void:
 	title_requested.emit()
 
 
+## 子面板关掉后回主面板。记下「这一拍是子面板在关」，同拍稍后到达本层的
+## Esc 才不会被当成「继续游戏」。
+func _back_to_panel() -> void:
+	_panel.visible = true
+	_sub_just_closed = true
+	_clear_sub_marker.call_deferred()
+
+
 # ============================================================
 #  子面板
 # ============================================================
@@ -128,7 +150,7 @@ func _open_save() -> void:
 	if _save_slots == null:
 		_save_slots = SaveSlots.new()
 		add_child(_save_slots)
-		_save_slots.closed.connect(func() -> void: _panel.visible = true)
+		_save_slots.closed.connect(_back_to_panel)
 	_save_slots.open(SaveSlots.Mode.SAVE)
 
 
@@ -137,7 +159,7 @@ func _open_load() -> void:
 		_save_slots = SaveSlots.new()
 		add_child(_save_slots)
 		_save_slots.loaded.connect(_after_load)
-		_save_slots.closed.connect(func() -> void: _panel.visible = true)
+		_save_slots.closed.connect(_back_to_panel)
 	_panel.visible = false
 	_save_slots.open(SaveSlots.Mode.LOAD)
 
@@ -147,7 +169,7 @@ func _open_markers() -> void:
 	if _marker == null:
 		_marker = MarkerOverview.new()
 		add_child(_marker)
-		_marker.closed.connect(func() -> void: _panel.visible = true)
+		_marker.closed.connect(_back_to_panel)
 	_marker.open()
 
 
@@ -156,7 +178,7 @@ func _open_notes() -> void:
 	if _notes == null:
 		_notes = NotesBrowser.new()
 		add_child(_notes)
-		_notes.closed.connect(func() -> void: _panel.visible = true)
+		_notes.closed.connect(_back_to_panel)
 	_notes.open()
 
 
@@ -165,7 +187,7 @@ func _open_quests() -> void:
 	if _quests == null:
 		_quests = QuestLog.new()
 		add_child(_quests)
-		_quests.closed.connect(func() -> void: _panel.visible = true)
+		_quests.closed.connect(_back_to_panel)
 	_quests.open()
 
 
@@ -174,7 +196,7 @@ func _open_settings() -> void:
 	if _settings == null:
 		_settings = SettingsPanel.new()
 		add_child(_settings)
-		_settings.closed.connect(func() -> void: _panel.visible = true)
+		_settings.closed.connect(_back_to_panel)
 	_settings.open()
 
 
@@ -204,6 +226,10 @@ func route_after_load() -> String:
 #  输入
 # ============================================================
 
+func _clear_sub_marker() -> void:
+	_sub_just_closed = false
+
+
 func _sub_open() -> bool:
 	return (_save_slots != null and _save_slots.visible) \
 		or (_marker != null and _marker.visible) \
@@ -216,10 +242,13 @@ func _input(e: InputEvent) -> void:
 	if not visible:
 		return
 	if e.is_action_pressed("menu"):
-		# 子面板各自的 _input 会自己关；都没开着，Esc = 继续。
-		if not _sub_open():
-			get_viewport().set_input_as_handled()
-			resume_game()
+		# 子面板（后加的子节点）先于本层收到这一键并关掉自己，_sub_just_closed
+		# 是那一拍留下的记号：这一下 Esc 的语义是「回主面板」，不是继续游戏。
+		if _sub_open() or _sub_just_closed:
+			_sub_just_closed = false
+			return
+		get_viewport().set_input_as_handled()
+		resume_game()
 		return
 	# 吞掉走路键，暂停时不许走。
 	for act in ["walk_up", "walk_down", "walk_left", "walk_right"]:

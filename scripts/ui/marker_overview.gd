@@ -8,7 +8,10 @@ extends Control
 
 signal closed
 
-const CARD_MIN := Vector2(480, 188)
+## 卡高是按 720 视口算过的：面板（上下各留 40）+ 标题 + 三行卡 + 间隔
+## 必须放得下六枚章，超了第三行会冲出纸边（浏览器自查里抓过这个溢出）。
+## 揭过的卡说明长、会自然撑高 —— 那时由外层 ScrollContainer 兜住。
+const CARD_MIN := Vector2(480, 166)
 
 
 func _ready() -> void:
@@ -30,8 +33,8 @@ func _build() -> void:
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.offset_left = 110
 	panel.offset_right = -110
-	panel.offset_top = 64
-	panel.offset_bottom = -64
+	panel.offset_top = 40
+	panel.offset_bottom = -40
 	add_child(panel)
 
 	var col := VBoxContainer.new()
@@ -44,12 +47,19 @@ func _build() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
 
+	# ScrollContainer 是兜底：六章全是未揭状态时六张卡正好放满 720 视口；
+	# 揭过的卡说明文字长，会把卡撑高 —— 那时宁可滚动，也不许冲出纸面。
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(scroll)
+
 	var grid := GridContainer.new()
 	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
-	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(grid)
+	scroll.add_child(grid)
 
 	for m in DataDB.markers:
 		grid.add_child(_card(m))

@@ -140,7 +140,9 @@ func _menu_button(text: String, handler: Callable) -> Button:
 	b.custom_minimum_size = Vector2(BTN_W, 52)
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_override("font", Paper.font())
-	b.add_theme_font_size_override("font_size", 22)
+	# 22px 在网页 <1 倍非整数缩放下，「一」这种只有一笔横线的字会被栅格化
+	# 吃掉（实测走动按钮里的「第一章」只剩一个点）；24px 的笔画相位安全。
+	b.add_theme_font_size_override("font_size", 24)
 	b.add_theme_color_override("font_color", Color("cbb894"))
 	b.add_theme_color_override("font_hover_color", Color("f0e2c2"))
 	b.add_theme_color_override("font_focus_color", Color("f0e2c2"))

@@ -1,7 +1,7 @@
 // webcheck.js —— 把导出的 Web 包真的在浏览器里跑一遍，截图带回来。
 //
 // 用法：
-//     node build/serve.js &                    # 先起本地服务
+//     node tools/serve.js &                    # 先起本地服务（默认 :8765 → build/web）
 //     node tools/webcheck.js [url] [outdir]
 //
 // 【为什么非得真跑一遍浏览器】
@@ -135,6 +135,15 @@ class CDP {
   async key(key, code, vk) {
     const base = { windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, code, key };
     await this.send("Input.dispatchKeyEvent", { type: "keyDown", ...base });
+    await this.send("Input.dispatchKeyEvent", { type: "keyUp", ...base });
+  }
+
+  // 按住一段时间再抬 —— 验「暂停时不许走」要用：走不走得动，得给够一帧以上
+  // 才看得出。瞬间 down+up 即便没被挡住，也只挪得动几像素，截图分不出来。
+  async holdKey(key, code, vk, ms) {
+    const base = { windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, code, key };
+    await this.send("Input.dispatchKeyEvent", { type: "keyDown", ...base });
+    await sleep(ms);
     await this.send("Input.dispatchKeyEvent", { type: "keyUp", ...base });
   }
 
@@ -310,7 +319,11 @@ async function main() {
     // 演完自动接上广和茶楼（p_tea，36 拍），演到那儿**停住**，
     // 等玩家自己走到下一场戏所在的房间。所以这里要多一段「按过前两场」。
     //
-    // 怎么进：Esc 回标题屏，再按两下方向键把焦点移到「走 动」。
+    // 【里程碑 6 改了 Esc 的去处】
+    // Esc 不再直接回标题 —— 它在 VN / 房间两个屏里都开**暂停菜单**
+    // （继续游戏 / 存档 / 读档 / 时局图 / 史实注 / 任务 / 设置 / 返回标题）。
+    // 所以先在 VN 里把暂停菜单和它的子面板挨个验一遍，再点「返 回 标 题」
+    // 回标题屏；然后方向键两下把焦点移到「走 动」。
     // 按钮顺序是 新的一局 / 续前一局 / 走动 / 设置，开局时焦点在第一颗，
     // 所以 Down 两下 = 走动。
     //
@@ -320,8 +333,52 @@ async function main() {
     // 但这条依赖要写下来，不然哪天改了 VN 屏的存档时机，这里会莫名其妙地
     // 走进设置面板，而截图上只是「多了一个面板」，不容易一眼看出是这儿的问题。
     if (process.argv.includes("--room")) {
+      // 暂停按钮在面板里的纵向比例（fx 一律 0.5：按钮 320 宽、面板居中）。
+      // 布局：标题 + 间隔 + 八颗 48px 按钮、间隔 12，整体在视口里垂直居中。
+      // 紧边距按钮（46px）+ 间隔 10，整面板 ≈556 高、垂直居中。
+      const B = { save: 0.349, load: 0.426, map: 0.504, notes: 0.582,
+                  quests: 0.660, settings: 0.738, title: 0.815 };
+      const vbox = await cdp.canvasBox();
+      const clickPause = async (fy, name) => {
+        const b = (await cdp.canvasBox()) || vbox;
+        await cdp.clickAtFraction(b, 0.5, fy);
+        await sleep(900);
+        await cdp.shot(path.join(OUT, name), report);
+        report.shots.push(name);
+      };
+
+      // 万一百拍走完时正摆着选项，先点掉它（选项摆着时 Esc 不开暂停）。
+      await cdp.click(640, 310);
+      await sleep(700);
+
       await cdp.key("Escape", "Escape", 27);
-      await sleep(1500);
+      await sleep(1000);
+      await cdp.shot(path.join(OUT, "40-VN中暂停（八个按钮）.png"), report);
+      report.shots.push("40-VN中暂停（八个按钮）.png");
+
+      // 挨个开子面板再 Esc：Esc 先关子面板、回主菜单，不能连带继续游戏
+      //（这条在单测里按真实派发顺序验过，浏览器里再看一眼画面）。
+      await clickPause(B.map, "41-时局图（未揭的只显问号）.png");
+      await cdp.key("Escape", "Escape", 27);
+      await sleep(600);
+      await clickPause(B.notes, "42-史实注一览.png");
+      await cdp.key("Escape", "Escape", 27);
+      await sleep(600);
+      await clickPause(B.quests, "43-任务一览.png");
+      await cdp.key("Escape", "Escape", 27);
+      await sleep(600);
+      await clickPause(B.save, "44-存档格（覆写要两下）.png");
+      await cdp.key("Escape", "Escape", 27);
+      await sleep(600);
+      await clickPause(B.settings, "45-设置（文字速度与全屏）.png");
+      await cdp.key("Escape", "Escape", 27);
+      await sleep(600);
+      await cdp.shot(path.join(OUT, "46-Esc后回到暂停主菜单.png"), report);
+      report.shots.push("46-Esc后回到暂停主菜单.png");
+
+      // 返回标题，再进「走动」。
+      await clickPause(B.title, "47-返回标题屏.png");
+      await sleep(1200);
       for (let i = 0; i < 2; i++) { await cdp.key("ArrowDown", "ArrowDown", 40); await sleep(250); }
       await cdp.shot(path.join(OUT, "50-标题屏-焦点在走动.png"), report);
       report.shots.push("50-标题屏-焦点在走动.png");
@@ -350,8 +407,30 @@ async function main() {
       // 所以这里宁可多按 —— 少按才会截出「还停在茶楼第一句」的假现场。
       for (let i = 0; i < 110; i++) { await cdp.key(" ", "Space", 32); await sleep(160); }
       await sleep(1200);
-      await cdp.shot(path.join(OUT, "52-茶楼·剧情停在缝里.png"), report);
-      report.shots.push("52-茶楼·剧情停在缝里.png");
+      await cdp.shot(path.join(OUT, "52-茶楼·剧情停在缝里（左上任务条）.png"), report);
+      report.shots.push("52-茶楼·剧情停在缝里（左上任务条）.png");
+
+      // ---- 里程碑 6 的房间侧验收：暂停锁走路、空格落空有提示 ----------------
+      //
+      // 先在暂停里按住「下」1.2 秒。PauseMenu 吞掉所有 walk_* 键 —— 若没吞，
+      // 小人会往下挪约 250px，截图跟 52 一对就看得出来。
+      await cdp.key("Escape", "Escape", 27);
+      await sleep(900);
+      await cdp.shot(path.join(OUT, "52-1-房间里暂停.png"), report);
+      report.shots.push("52-1-房间里暂停.png");
+      await cdp.holdKey("ArrowDown", "ArrowDown", 40, 1200);
+      await cdp.key("Escape", "Escape", 27);
+      await sleep(700);
+      await cdp.shot(path.join(OUT, "52-2-继续后小人应当还在出生点.png"), report);
+      report.shots.push("52-2-继续后小人应当还在出生点.png");
+
+      // 玩家反馈：脊梁缝里按空格，附近没有热点时不再是「按了没反应」，
+      // 而会闪一句「附近没有能看的东西，走一走试试」。
+      await cdp.key(" ", "Space", 32);
+      await sleep(350);
+      await cdp.shot(path.join(OUT, "52-3-空格落空的提示.png"), report);
+      report.shots.push("52-3-空格落空的提示.png");
+      await sleep(1400); // 等提示淡出，免得遮后面的截图
 
       // 点几处地方：一个 NPC、一个可查物件、一个出口。
       // 坐标是**归一化比例**，与 rooms.json 里写的同一套数：
