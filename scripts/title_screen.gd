@@ -228,8 +228,14 @@ func _continue() -> void:
 	var d := SaveManager.load_slot("auto")
 	if d.is_empty():
 		return
-	AppSettings.pending_resume = true
-	get_tree().change_scene_to_file(VN_SCENE)
+	# 自动存档在房间里落下 → 进房间屏脊梁续播；没有房间（纯 VN）→ VN 屏。
+	if not GameState.room.is_empty():
+		AppSettings.pending_spine = true
+		AppSettings.pending_resume = true
+		get_tree().change_scene_to_file(ROOM_SCENE)
+	else:
+		AppSettings.pending_resume = true
+		get_tree().change_scene_to_file(VN_SCENE)
 
 
 ## 走动演示：进房间屏，从脊梁开头演起。

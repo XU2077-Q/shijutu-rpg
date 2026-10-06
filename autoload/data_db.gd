@@ -408,6 +408,7 @@ func _validate() -> void:
 	_validate_slice()
 	_validate_story_map()
 	_validate_rooms()
+	_validate_quests()
 
 
 ## V7：切片边界。导出器给的 slice 里每个 id 都得是真场景。
@@ -889,6 +890,84 @@ func _validate_exits(room_id: String, r: Dictionary) -> void:
 
 	if exits == 0:
 		errors.append("R8 房间 %s 一个出口都没有 —— 走进去就出不来了" % room_id)
+
+
+# ============================================================
+#  任务校验（Q 组）
+# ============================================================
+#
+# 任务表是手写的（data/quests.json），任务状态又全靠游标与印章现算 ——
+# 一旦锚点写错（指向不在脊梁上的场景、顺序写反、印章 id 写错），
+# 运行时不报错，只是任务栏永远不更新或永远完不成。逐条拦住：
+#   Q1 id 唯一且非空
+#   Q2 start/end 都是脊梁场景，且 start 在 end 前面
+#   Q3 goal 锚点是脊梁场景，落在区间内，严格按脊梁顺序
+#   Q4 marker 真的存在
+#   Q5 goal 文字非空
+
+func _validate_quests() -> void:
+	if quests.is_empty():
+		return   # 手写文件，允许缺席
+
+	var defs: Variant = quests.get("quests", [])
+	if not (defs is Array):
+		errors.append("Q1 quests.json 的 quests 不是数组")
+		return
+
+	var seen_ids := {}
+	for q in defs:
+		if not (q is Dictionary):
+			errors.append("Q1 quests.json 里有一条不是字典")
+			continue
+		var qid := str(q.get("id", ""))
+		var tag := "Q 任务 %s" % (qid if not qid.is_empty() else "(没写 id)")
+		if qid.is_empty():
+			errors.append(tag + " 没写 id")
+		elif seen_ids.has(qid):
+			errors.append(tag + " 重复了")
+		else:
+			seen_ids[qid] = true
+
+		var st := str(q.get("start", ""))
+		var en := str(q.get("end", ""))
+		var i_st := spine_index(st)
+		var i_en := spine_index(en)
+		if i_st < 0:
+			errors.append("%s 的 start「%s」不在脊梁上" % [tag, st])
+		if i_en < 0:
+			errors.append("%s 的 end「%s」不在脊梁上" % [tag, en])
+		if i_st >= 0 and i_en >= 0 and not (i_st < i_en):
+			errors.append("%s 的 start 必须排在 end 前面（%s=%d, %s=%d）"
+				% [tag, st, i_st, en, i_en])
+
+		var mk := str(q.get("marker", ""))
+		if not mk.is_empty():
+			var found := false
+			for m in markers:
+				if m is Dictionary and str((m as Dictionary).get("id", "")) == mk:
+					found = true
+					break
+			if not found:
+				errors.append("%s 的 marker「%s」在 markers.json 里不存在" % [tag, mk])
+
+		var prev := -1
+		for g in q.get("goals", []):
+			if not (g is Dictionary):
+				errors.append(tag + " 有一条 goal 不是字典")
+				continue
+			var at := str(g.get("at", ""))
+			var txt := str(g.get("text", ""))
+			if txt.strip_edges().is_empty():
+				errors.append("%s 的 goal「%s」没有文字" % [tag, at])
+			var i_at := spine_index(at)
+			if i_at < 0:
+				errors.append("%s 的 goal 锚点「%s」不在脊梁上" % [tag, at])
+				continue
+			if i_st >= 0 and i_en >= 0 and (i_at < i_st or i_at > i_en):
+				errors.append("%s 的 goal 锚点「%s」落在 start/end 区间外" % [tag, at])
+			if i_at <= prev:
+				errors.append("%s 的 goal 锚点「%s」顺序不对（必须严格按脊梁向后）" % [tag, at])
+			prev = i_at
 
 
 # ---------------------- 归一化坐标的小工具 ----------------------

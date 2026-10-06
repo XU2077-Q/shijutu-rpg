@@ -19,7 +19,9 @@ const TITLE_SCENE := "res://scenes/title/title.tscn"
 enum Modal { NONE, CARD, QUOTE, LETTER, CHOICE }
 
 var _bg: ColorRect
+var _ink: TextureRect
 var _vignette: TextureRect
+var _pause: PauseMenu
 var _place: PanelContainer
 var _place_label: Label
 var _portraits: PortraitLayer
@@ -77,6 +79,15 @@ func _build() -> void:
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
 
+	# 水墨底（对话部分走水墨风）。每进一场按它所在房间换图；
+	# 没有房间的呈现层（题记/书信/尾声）用暗墨。
+	_ink = TextureRect.new()
+	_ink.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ink.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_ink)
+
 	_vignette = TextureRect.new()
 	_vignette.texture = _vignette_texture()
 	_vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -133,6 +144,22 @@ func _build() -> void:
 
 	_build_toast()
 
+	# 暂停菜单放最后加 —— 它要在最上层接住鼠标。
+	_pause = PauseMenu.new()
+	add_child(_pause)
+	_pause.title_requested.connect(func() -> void:
+		get_tree().change_scene_to_file(TITLE_SCENE))
+
+
+## 按场景所在房间换水，墨底；没房间的（题记/书信/尾声）用暗墨。
+func _set_ink(scene_id: String) -> void:
+	var key := DataDB.room_for_scene(scene_id)
+	if key.is_empty():
+		key = "dark"
+	var p := "res://art/ink/%s.png" % key
+	if ResourceLoader.exists(p):
+		_ink.texture = load(p)
+
 
 ## 四角压暗。宣纸本身是平的，整屏一个色会显得像没画完；
 ## 压一圈暗角就有了「这是一页纸」的感觉，也让中间的字更聚。
@@ -176,6 +203,7 @@ func _build_toast() -> void:
 
 func _on_scene_entered(_id: String, scene: Dictionary) -> void:
 	_place_label.text = _place_text(scene)
+	_set_ink(_id)
 
 	# 暗场（题记那一场）。底色调暗，四角压得更重 —— 那一场是梦里的话。
 	var dark := bool(scene.get("dark", false))
@@ -342,30 +370,16 @@ func _on_click(e: InputEvent) -> void:
 
 
 func _unhandled_input(e: InputEvent) -> void:
-	# Esc 回标题屏。
-	#
-	# 【为什么现在就得有】
-	# 房间屏（room_view.gd）一开始就接了 menu，VN 屏这边却漏了 ——
-	# 于是「开了一局之后想回标题」这条路**根本不存在**：
-	# 浏览器里只能刷新页面，桌面上只能重启。少了它，玩家换一档、改设置、
-	# 或者只是想看看标题，都得先杀掉这个程序。这不是「以后做暂停菜单再说」
-	# 的事，是一条断掉的路。
-	#
-	# 走这一下不会丢进度：VN 屏在**每次进场景**和**每次摆出选项**时都落了
-	# 自动存档（见 test_autosave_lands_on_scene_entry_and_choices），
-	# 回来「续 前 一 局」接得上。
-	#
-	# 但模态开着的时候不认 —— 正摆着选择，一按 Esc 就回标题，
-	# 玩家会以为自己那一下选了什么。真要退出，先把选项点掉。
+	# 暂停菜单开着时，游戏这边什么键都不接。
+	if _pause.is_open():
+		return
+	# Esc = 暂停菜单（原来直接回标题；菜单里有「返回标题」，路还在）。
+	# 模态开着时不认 —— 正摆着选择/书信，一按 Esc 弹暂停，
+	# 玩家会以为自己那一下选了什么。
 	if e.is_action_pressed("menu"):
-		if _modal == Modal.NONE:
-			# 先吃下这一下，再换场景 —— 反过来的话 change_scene_to_file
-			# 已经把旧场景拆出树了，set_input_as_handled 会走在一个
-			# 不在树上的 Viewport 上，引擎甩一句
-			#   ERROR: Condition "!is_inside_tree()" is true. at: set_input_as_handled
-			# 不崩，但自查里这条假报错会盖住真报错。房间屏同理。
+		if _modal == Modal.NONE and not _run_over:
 			get_viewport().set_input_as_handled()
-			get_tree().change_scene_to_file(TITLE_SCENE)
+			_pause.open()
 		return
 	if e.is_action_pressed("ui_advance") or e.is_action_pressed("interact"):
 		press()

@@ -66,6 +66,10 @@ var _note: NoteView
 var _hint: Label
 var _choices: ChoiceMenu
 var _card: ChapterCard
+var _pause: PauseMenu
+var _quest: QuestBar
+var _fail: Label
+var _fail_tween: Tween
 
 ## 呈现层的暗场。没有房间的那几场（题记 / 书信 / 林婉如视角 / 尾声）
 ## 就压在这块底色上演 —— 它们不属于沈怀瑾走过的任何一个地方。
@@ -142,10 +146,12 @@ func _enter_from_settings() -> void:
 	# 「走 动」那颗按钮走的是脊梁：剧情游标从 p_intro 起，房间跟着剧情换。
 	# 里程碑 4 那套「直接丢进一间空房乱走」的路留着 —— 调试和测试都要用。
 	if AppSettings.pending_spine:
+		var resume := AppSettings.pending_resume
 		AppSettings.pending_spine = false
+		AppSettings.pending_resume = false
 		AppSettings.pending_room = ""
 		AppSettings.pending_at = Vector2.INF
-		begin_spine()
+		begin_spine(resume)
 		return
 
 	var id := AppSettings.pending_room
@@ -172,7 +178,7 @@ func _enter_from_settings() -> void:
 # 顶替、选项的 gain/flag 全得在房间屏里再写一遍 —— 两处各写一遍的
 # 剧情逻辑，迟早会有一处跟另一处不一样，而且不会报错。
 
-func begin_spine() -> void:
+func begin_spine(resume := false) -> void:
 	_spine = true
 	_next_spine = ""
 	_spine_scene = ""
@@ -189,7 +195,12 @@ func begin_spine() -> void:
 	BeatRunner.scene_finished.connect(_on_spine_scene_finished)
 	BeatRunner.run_finished.connect(_on_spine_run_finished)
 
-	BeatRunner.begin(DataDB.spine_start())
+	# 读档续播：书签在 GameState（SaveManager.load_slot 已灌回）。
+	# 从头演：spine_start。
+	if resume:
+		BeatRunner.resume(GameState.scene, GameState.idx)
+	else:
+		BeatRunner.begin(DataDB.spine_start())
 
 
 func _on_spine_scene_entered(id: String, scene: Dictionary) -> void:
@@ -203,7 +214,9 @@ func _on_spine_scene_entered(id: String, scene: Dictionary) -> void:
 	else:
 		_set_presentation(false)
 		if room != _room_id:
-			enter(room)
+			# 续播时把小人放回存档里的位置；新戏（无位置）走房间 spawn。
+			var at := GameState.player_pos if GameState.player_pos != Vector2.ZERO else Vector2.INF
+			enter(room, at)
 	_place_label.text = _spine_place_text(scene)
 
 	# 章节卡挂在**场景**上（序章卡挂在 p_tea，不是挂在 p_intro 上）。
@@ -218,6 +231,7 @@ func _on_spine_scene_entered(id: String, scene: Dictionary) -> void:
 	_playing = true
 	_prompt.visible = false
 	_update_hint()
+	_quest.refresh()
 	SaveManager.autosave()
 
 
@@ -342,15 +356,15 @@ func _update_hint() -> void:
 	# （ChoiceMenu._input 把它吞了，见那边的说明）。写着能按却按不动，
 	# 玩家只会以为卡住了。
 	if _choices.visible:
-		_hint.text = "点选项 · 或按 ↑↓ 选、回车定 · Esc 回标题"
+		_hint.text = "点选项 · 或按 ↑↓ 选、回车定 · Esc 暂停"
 		return
 	if _playing:
-		_hint.text = "空格 继续 · Esc 回标题"
+		_hint.text = "空格 继续 · Esc 暂停"
 		return
 	if not _next_spine.is_empty():
 		_hint.text = "剧情在「%s」· 走到那间房就接着演 · WASD 或点地上走" % _room_name_of(_next_spine)
 		return
-	_hint.text = "点地上走过去 · WASD 也能走 · 空格 查看 / 交谈 · Esc 回标题"
+	_hint.text = "点地上走过去 · WASD 也能走 · 空格 查看 / 交谈 · Esc 暂停"
 
 
 func _room_name_of(scene_id: String) -> String:
@@ -462,7 +476,7 @@ func _build() -> void:
 	# 任意明暗的图画上，光靠一个浅墨色是读不清的。
 	_hint = Label.new()
 	Paper.style_label(_hint, 18, Paper.INK_FAINT)
-	_hint.text = "点地上走过去 · WASD 也能走 · 空格 查看 / 交谈 · Esc 回标题"
+	_hint.text = "点地上走过去 · WASD 也能走 · 空格 查看 / 交谈 · Esc 暂停"
 	_hint.add_theme_color_override("font_shadow_color", Color(0.98, 0.94, 0.87, 0.85))
 	_hint.add_theme_constant_override("shadow_offset_x", 1)
 	_hint.add_theme_constant_override("shadow_offset_y", 1)
@@ -472,6 +486,45 @@ func _build() -> void:
 	_hint.offset_bottom = -20
 	_hint.offset_right = 900
 	add_child(_hint)
+
+	# 任务条。放在房间层，呈现层（暗场）时也保留 —— 题记那场也有任务。
+	_quest = QuestBar.new()
+	add_child(_quest)
+	_quest.refresh()
+
+	# 空格按空时的提示。自由走动、附近没有热点时 press() 原本是静默的，
+	# 玩家只会觉得「空格坏了」。给一句话，让这个按键有个看得见的下落。
+	_fail = Label.new()
+	Paper.style_label(_fail, 20, Paper.INK_SOFT)
+	_fail.text = ""
+	_fail.add_theme_color_override("font_shadow_color", Color(0.98, 0.94, 0.87, 0.85))
+	_fail.add_theme_constant_override("shadow_offset_x", 1)
+	_fail.add_theme_constant_override("shadow_offset_y", 1)
+	_fail.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_fail.offset_left = -300
+	_fail.offset_right = 300
+	_fail.offset_top = -330
+	_fail.offset_bottom = -286
+	_fail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fail.modulate.a = 0.0
+	add_child(_fail)
+
+	# 暂停菜单放最后，最上层。
+	_pause = PauseMenu.new()
+	add_child(_pause)
+	_pause.title_requested.connect(func() -> void:
+		get_tree().change_scene_to_file(TITLE_SCENE))
+
+
+## 空格落了空：把一句提示闪一下。
+func say_fail(text: String) -> void:
+	_fail.text = text
+	_fail.modulate.a = 1.0
+	if _fail_tween != null and _fail_tween.is_valid():
+		_fail_tween.kill()
+	_fail_tween = create_tween()
+	_fail_tween.tween_interval(1.0)
+	_fail_tween.tween_property(_fail, "modulate:a", 0.0, 0.5)
 
 
 func _build_placeholder() -> Control:
@@ -559,9 +612,13 @@ func enter(id: String, at: Vector2 = Vector2.INF) -> void:
 	if spawn == Vector2.INF:
 		spawn = _norm_to_px(_room.get("spawn", [0.5, 0.5]))
 	_walker.setup(_walker_prefix(), _grid)
+	# 续播的位置可能被旧墙/边界夹住（窗口比例变了），站不进去就退回 spawn。
+	if not _grid.is_walkable(spawn):
+		spawn = _norm_to_px(_room.get("spawn", [0.5, 0.5]))
 	_walker.set_foot(spawn)
 	_walker.stop()
 	_refresh_focus()
+	_quest.refresh()
 
 	SaveManager.autosave()
 
@@ -667,20 +724,21 @@ func _blockers_px() -> Array:
 # ============================================================
 
 func _unhandled_input(e: InputEvent) -> void:
+	# 暂停菜单开着，游戏不接键。
+	if _pause.is_open():
+		return
 	if _note.visible:
 		if e.is_action_pressed("ui_advance") or e.is_action_pressed("interact"):
 			_note.dismiss()
 			get_viewport().set_input_as_handled()
 		return
 	if e.is_action_pressed("menu"):
-		# 【顺序不能反：先吃掉这一下，再换场景】
-		# change_scene_to_file 是**立刻**把旧场景拆出树，但新场景要等这一帧末尾才进来。
-		# 拆出去之后再调 set_input_as_handled，走的是「已不在树上的 Viewport」——
-		# 引擎会往控制台甩一句
-		#   ERROR: Condition "!is_inside_tree()" is true. at: set_input_as_handled
-		# 不崩、不影响玩，但浏览器自查里它就是一条真的报错，会把真问题淹掉。
+		# 收尾卡（垂直切片到此为止）不弹暂停 —— 它自己就是这一局的终点。
+		if _card.visible and _card_ends_run:
+			return
 		get_viewport().set_input_as_handled()
-		get_tree().change_scene_to_file(TITLE_SCENE)
+		_walker.stop()
+		_pause.open()
 		return
 	if e is InputEventKey and (e as InputEventKey).pressed \
 			and (e as InputEventKey).keycode == KEY_F1:
@@ -740,6 +798,8 @@ func press() -> void:
 		return
 	if _spine:
 		if not _playing:
+			# 自由走动、附近没有热点。静默 = 玩家以为空格坏了 —— 给句话。
+			say_fail("附近没有可查看 / 交谈的东西 —— 走近桌上或门边再按空格")
 			return
 		if _box.is_typing():
 			_box.skip_typing()
@@ -752,7 +812,7 @@ func press() -> void:
 
 
 func _process(delta: float) -> void:
-	if _note.visible or _playing:
+	if _note.visible or _playing or _pause.is_open():
 		return
 	# 键盘走。按了键盘就把点选的路取消掉 ——
 	# 不取消的话松手之后小人会自己跑回原来那条路上，看着像闹鬼。
