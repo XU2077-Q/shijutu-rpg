@@ -23,11 +23,24 @@ signal run_finished(reason: String)
 ## 走到切片边界就停。demo 用 true，将来正式版用 false。
 var slice_only := true
 
-## VN 回退模式（I6）：把每一拍都当线性文本播，不看条件。
-## 它同时是**验证预言机** —— 这个模式跑一遍，拼出来的文本必须与原文逐字相同。
-## 目前 story_map 的物件/环境路由还没实现（里程碑 5），所以这里先只管 cond；
-## 等路由上了，这里再一并忽略路由。
+## VN 回退模式（I6）：把每一拍都当线性文本播，不看条件、也不看路由 ——
+## 场景之间就顺着 story.json 的 next 走，九个扩写节点全都演一遍。
+##
+## 它同时是**验证预言机**：这个模式跑一遍，拼出来的文本必须与原文逐字相同。
+## 「没丢东西」这句话，就靠它兜着。所以它故意**不**理会 story_map ——
+## 预言机要是也走脊梁，那验的就是「脊梁对不对」，而不是「原文全不全」了。
 var vn_mode := false
+
+## 脊梁模式（RPG 的正常走法）：场景之间按 story_map 的 spine 走，
+## 跳过归热点/环境的扩写节点。
+##
+## 【为什么这件事必须由 BeatRunner 来做，而不是房间层】
+## 房间层管的是「玩家点了什么」，它不知道剧情该往哪儿走。
+## 而脊梁顺序是 story_map 说了算的 —— 让 BeatRunner 直接问 DataDB.spine_step，
+## 就只有一个地方知道顺序，不会出现「剧情游标和房间各走各的」。
+##
+## 关掉它（false）就是里程碑 3 那套纯线性 VN，用于逐字比对。
+var spine_mode := false
 
 var running := false
 var awaiting_choice := false
@@ -188,7 +201,9 @@ func _pump() -> void:
 		if idx >= beats.size():
 			var to := _next_scene()
 			if to.is_empty():
-				_finish("no_next")
+				# 脊梁模式下「没下一场」就是切片演完了 —— 脊梁的末端就是切片末端。
+				# 线性模式则可能是剧本真的断了（导出器该拦住的），两者要分得开。
+				_finish("slice_end" if spine_mode else "no_next")
 				return
 			if slice_only and not DataDB.slice_set.has(to):
 				_finish("slice_end")
@@ -235,6 +250,11 @@ func _present(bid: String, beat: Dictionary) -> void:
 
 
 func _next_scene() -> String:
+	if spine_mode:
+		# 脊梁自己会跳过归热点的扩写节点，也会在选择场景处挑一条分支。
+		# 分支由 choose() 直接 _enter 进去（不经过这里），所以走到这一步
+		# 的场景都不是选择场景。
+		return DataDB.spine_step(scene_id)
 	var sc: Dictionary = DataDB.scenes.get(scene_id, {})
 	var nx: Variant = sc.get("next")
 	if nx is String:

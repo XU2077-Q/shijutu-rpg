@@ -20,12 +20,54 @@ func _objects(room_id: String) -> Array:
 	return (DataDB.room(room_id).get("objects", []) as Array)
 
 
-func test_the_slice_has_its_three_rooms() -> void:
-	eq(_rooms().size(), 3, "切片应当是序章那三间房")
-	for id in ["r_tea", "r_xuanwu", "r_gongche"]:
+## 十二条房间：序章六间 + 第一章六间。
+##
+## 【为什么这条要写死数目】里程碑 4 只有三间（茶楼、大街、都察院），
+## 三间连成一个小世界就够了。里程碑 5 把整个切片铺开 ——
+## 数一下是对的，能挡住「加房间时漏了一间、而那间恰好没人走得到」。
+## 数目本身不是目的，但它是最便宜的那道哨。
+func test_the_slice_has_its_twelve_rooms() -> void:
+	var want := ["r_tea", "r_xuanwu", "r_ci", "r_ke", "r_gongche", "r_hunan",
+		"r_yongding", "r_shanghai", "r_oldhouse", "r_farm", "r_study", "r_chendi"]
+	eq(_rooms().size(), want.size(), "切片应当是 %d 间房" % want.size())
+	for id in want:
 		ok(_rooms().has(id), "缺少房间 %s" % id)
 	ok(_rooms().has(DataDB.room_start),
 		"rooms.json 的 start（%s）不是一间真房间" % DataDB.room_start)
+
+
+## 两条**元注**故意不挂在任何物件上 —— 它们讲的是这部作品本身，
+## 不是某个茶壶。留给里程碑 6 的史实注一览直接列出来。
+##
+## 【为什么这个状态值得写死】因为它看起来像漏了。
+## 一个只扫「物件引用的注」的检查会发现序章 6 条只用了 5 条，
+## 然后有人会「顺手补上」—— 把《关于题记的说明》挂给茶盏，
+## 玩家在茶楼查个茶盏，翻出来一段讲题记怎么写的话。
+func test_the_two_meta_notes_are_deliberately_homeless() -> void:
+	var used := {}
+	for id in _rooms():
+		for o in _objects(id):
+			var note: Variant = o.get("note", [])
+			if note is Array and (note as Array).size() == 2:
+				used["%s/%s" % [str(note[0]), str(note[1])]] = true
+
+	for meta in ["序章/关于题记的说明", "第一章/虚构人物声明"]:
+		ok(not used.has(meta),
+			"%s 被挂到物件上了 —— 它是元注，讲的是作品本身，不该从某个茶壶里翻出来"
+			% meta)
+		ok(not DataDB.note_body(meta.get_slice("/", 0), meta.get_slice("/", 1)).is_empty(),
+			"%s 在 notes.json 里找不到了" % meta)
+
+	# 反过来也要成立：切片范围内的注，除了那两条元注，其余都该有落脚处。
+	var homeless: Array = []
+	for ch in ["序章", "第一章"]:
+		for n in DataDB.notes.get(ch, []):
+			var key := "%s/%s" % [ch, str(n.get("h", ""))]
+			if not used.has(key):
+				homeless.append(key)
+	homeless.sort()
+	eq(homeless, ["序章/关于题记的说明", "第一章/虚构人物声明"],
+		"切片里没被任何物件引用的注，应当正好是那两条元注")
 
 
 ## R5 的独立版本：空壳物件是这一层最难发现的一种坏 ——

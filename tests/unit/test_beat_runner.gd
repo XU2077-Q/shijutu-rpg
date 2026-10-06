@@ -20,6 +20,9 @@ func _reset() -> void:
 	BeatRunner.stop()
 	BeatRunner.slice_only = true
 	BeatRunner.vn_mode = false
+	# 走架是全局单例，模式开关会漏给下一个用例 —— 显式关掉，
+	# 别让「上一个文件跑过什么」影响这一份的结果。
+	BeatRunner.spine_mode = false
 
 
 ## 从头走到停。每个选择都挑**第一个能选的**。

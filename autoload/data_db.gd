@@ -31,7 +31,12 @@ var markers: Array = []
 var endings: Array = []
 var expansions: Array = []
 
-var story_map: Dictionary = {}   ## 手写：节拍 → 路由
+var story_map: Dictionary = {}   ## 手写：叙事路由（spine / object / ambient）
+var spine: Array = []            ## 手写：脊梁节点顺序（含选择场景的全部分支）
+var object_scenes: Array = []    ## 手写：归热点触发的场景
+var ambient_scenes: Array = []   ## 手写：进房自动播的场景
+var scene_rooms: Dictionary = {} ## 手写：场景 → 在哪间房演
+var present_scenes: Array = []   ## 手写：没有房间、在呈现层演的脊梁节点
 var rooms: Dictionary = {}       ## 手写：房间定义
 var room_start: String = ""      ## 手写：从哪一间开始走
 var quests: Dictionary = {}      ## 手写：任务定义
@@ -114,6 +119,11 @@ func load_all() -> void:
 	var sm: Variant = _read_json("story_map.json", false)
 	if sm is Dictionary:
 		story_map = sm
+		spine = sm.get("spine", [])
+		object_scenes = sm.get("object", [])
+		ambient_scenes = sm.get("ambient", [])
+		scene_rooms = sm.get("rooms", {})
+		present_scenes = sm.get("present", [])
 	var rm: Variant = _read_json("rooms.json", false)
 	if rm is Dictionary:
 		rooms = rm.get("rooms", {})
@@ -121,6 +131,10 @@ func load_all() -> void:
 	var qs: Variant = _read_json("quests.json", false)
 	if qs is Dictionary:
 		quests = qs
+
+	# 路由索引要等 rooms.json 也读完才能建 —— 它要靠 rooms 才能算出
+	# 「哪个热点挂的是哪段扩写」。放在这儿是 load_all 的最后一步。
+	_reindex_routes()
 
 
 ## 一间房间的定义。没有就返回空字典 —— 调用方据此决定退到哪儿。
@@ -130,6 +144,154 @@ func room(id: String) -> Dictionary:
 
 func has_room(id: String) -> bool:
 	return rooms.has(id)
+
+
+# ============================================================
+#  叙事路由（story_map.json）
+# ============================================================
+
+## 场景 → "spine" / "object" / "ambient"。没有路由的场景不在表里。
+var _route_by_scene: Dictionary = {}
+## 场景 → 在 spine 里的下标（只对脊梁节点有意义）
+var _spine_index: Dictionary = {}
+## 场景 → 挂它的热点 id（只对 object 路由有意义）
+var _hotspot_by_scene: Dictionary = {}
+## 热点 id → 场景。rooms.json 是权威，这里只是反过来查的快表。
+var _scene_by_hotspot: Dictionary = {}
+
+const ROUTE_SPINE := "spine"
+const ROUTE_OBJECT := "object"
+const ROUTE_AMBIENT := "ambient"
+
+
+## 重建路由索引。load_all 的最后一步调它 ——
+## 它同时依赖 story_map.json（spine/object/ambient 三张表）
+## 和 rooms.json（热点 id → 场景），缺一个都算不全。
+func _reindex_routes() -> void:
+	_route_by_scene.clear()
+	_spine_index.clear()
+	_hotspot_by_scene.clear()
+	_scene_by_hotspot.clear()
+
+	for i in spine.size():
+		var id := str(spine[i])
+		_route_by_scene[id] = ROUTE_SPINE
+		# 同一个场景在 spine 里出现两次的话，下标会互相盖掉 ——
+		# S1 拦这一条，所以这里不必再判。
+		_spine_index[id] = i
+	for id in ambient_scenes:
+		_route_by_scene[str(id)] = ROUTE_AMBIENT
+	for id in object_scenes:
+		_route_by_scene[str(id)] = ROUTE_OBJECT
+
+	# 热点 → 场景。rooms.json 里每个物件的 scene 字段就是这条绑定，
+	# 所以路由表里不必再抄一遍（抄了就会漂）。
+	for rid in rooms:
+		for o in (rooms[rid] as Dictionary).get("objects", []):
+			if not (o is Dictionary):
+				continue
+			var sc := str((o as Dictionary).get("scene", ""))
+			if sc.is_empty():
+				continue
+			_scene_by_hotspot[str((o as Dictionary).get("id", ""))] = sc
+			_hotspot_by_scene[sc] = str((o as Dictionary).get("id", ""))
+
+
+## 这个场景归哪种路由。空串 = 没路由（切片里的场景不该出现这种情况）。
+func route_of(scene_id: String) -> String:
+	return str(_route_by_scene.get(scene_id, ""))
+
+
+## 一拍归哪种路由 —— 拍跟着场景走。
+## 【为什么不做到拍一级】理由写在 data/story_map.json 的 _说明 里：
+## 原文是连续的散文，按拍切会把它切碎。整个场景一起路由就没有这个问题。
+func route_of_beat(bid: String) -> String:
+	return route_of(str(bid).get_slice(":", 0))
+
+
+func is_spine(scene_id: String) -> bool:
+	return _spine_index.has(scene_id)
+
+
+## 场景在脊梁上的位置。不在脊梁上返回 -1。
+func spine_index(scene_id: String) -> int:
+	return int(_spine_index.get(scene_id, -1))
+
+
+## 挂这个场景的热点 id。没有返回空串。
+func hotspot_for_scene(scene_id: String) -> String:
+	return str(_hotspot_by_scene.get(scene_id, ""))
+
+
+## 这个热点会播哪个场景。没挂返回空串。
+func scene_for_hotspot(hotspot_id: String) -> String:
+	return str(_scene_by_hotspot.get(hotspot_id, ""))
+
+
+## 这场戏在哪间房演。空串 = 没有房间，走呈现层（见 story_map 的 present）。
+##
+## 归 object 路由的场景不用在这里再写一遍 —— 它在哪间房，
+## 由「哪个热点挂着它」决定，rooms.json 已经说了（S4 保证只有一个）。
+func room_for_scene(scene_id: String) -> String:
+	var r := str(scene_rooms.get(scene_id, ""))
+	if not r.is_empty():
+		return r
+	var h := hotspot_for_scene(scene_id)
+	if not h.is_empty():
+		for rid in rooms:
+			for o in (rooms[rid] as Dictionary).get("objects", []):
+				if o is Dictionary and str((o as Dictionary).get("id", "")) == h:
+					return rid
+	return ""
+
+
+## 这场戏是不是走呈现层（暗场引文 / 书信 / 章节卡）—— 没有房间的那种。
+func is_present_scene(scene_id: String) -> bool:
+	return present_scenes.has(scene_id)
+
+
+## 脊梁上的下一步：从 scene_id 往后走，跳过所有不归脊梁的场景，返回第一个归脊梁的。
+##
+## 【为什么不能直接用 story.json 的 next】那条链上串着九个扩写节点。
+## 其中七个归热点（玩家查不查得到，看他走没走到），两个归脊梁。
+## 直接顺着 next 走的话，玩家没查告示墙，剧情就永远停在 p_intro 上 ——
+## 而画面上什么都不会说，像是卡了。
+##
+## chosen_to 只在选择场景用：玩家选了哪条分支就传哪条（空串 = 取第一条）。
+## 选中的分支如果不在脊梁上，就继续顺着它往下找。
+func spine_step(scene_id: String, chosen_to: String = "") -> String:
+	var sc: Dictionary = scenes.get(scene_id, {})
+	if sc.is_empty():
+		return ""
+	var edges := _story_edges(scene_id)
+	if edges.is_empty():
+		return ""
+	var cursor := ""
+	if not chosen_to.is_empty() and edges.has(chosen_to):
+		cursor = chosen_to
+	else:
+		cursor = str(edges[0])
+
+	# 顺着链往下找第一个脊梁节点。最多找 scenes.size() 步 ——
+	# 再多就是数据里有个环，不能把调用方挂死在这儿。
+	var guard := 0
+	while not cursor.is_empty() and guard <= scenes.size():
+		guard += 1
+		if is_spine(cursor):
+			return cursor
+		var nxt := _story_edges(cursor)
+		if nxt.is_empty():
+			return ""
+		cursor = str(nxt[0])
+	return ""
+
+
+## 脊梁上第一个节点（玩家从这儿开始）。
+func spine_start() -> String:
+	if is_spine(start_scene):
+		return start_scene
+	# 起始场景要是不归脊梁（比如被改成了某个热点扩写），顺着走一格。
+	return spine_step(start_scene)
 
 
 ## 一条史实注的正文。找不到返回空串。
@@ -244,6 +406,7 @@ func _validate() -> void:
 	_validate_ast()
 	_validate_reachability()
 	_validate_slice()
+	_validate_story_map()
 	_validate_rooms()
 
 
@@ -436,6 +599,168 @@ func _validate_reachability() -> void:
 #   R8 每个房间至少有一个出口  —— 走进去出不来
 
 const ROOM_KINDS := ["look", "talk", "exit"]
+
+
+## S1~S6：叙事路由。这是**手写**的，没有导出器替我兜底 ——
+## 而且它错起来是沉默的：路由漏一个场景，玩家玩到那儿就卡住不动，
+## 而所有别的检查都是绿的。
+##
+## 为什么值得这么厚一层：story_map 是「原文只做脊梁」那句话的落点。
+## 它一旦漂了，漂的是**剧情顺序**，那是这部作品最不能动的东西。
+func _validate_story_map() -> void:
+	if story_map.is_empty():
+		return   # 手写文件，允许缺席
+
+	# S1 脊梁上的每个 id 都得是真场景，且不许重复。
+	# 重复的后果很隐蔽：_reindex_routes 里下标会互相盖掉，
+	# 后面按 spine_index 排序的地方就会静默地用错位置。
+	var seen_spine := {}
+	for id in spine:
+		var sid := str(id)
+		if not scenes.has(sid):
+			errors.append("S1 脊梁上的 %s 不是真场景" % sid)
+			continue
+		if seen_spine.has(sid):
+			errors.append("S1 脊梁上的 %s 出现了两次 —— 剧情会原地打转" % sid)
+		seen_spine[sid] = true
+		if not slice_set.is_empty() and not slice_set.has(sid):
+			errors.append("S1 脊梁上的 %s 不在切片里 —— 玩到那儿接不下去" % sid)
+
+	# S2 一个场景只许归一种路由。spine ∩ object 是最要命的一种：
+	# 那个场景会被剧情游标播一遍、又被热点播一遍。
+	for id in object_scenes:
+		var oid := str(id)
+		if seen_spine.has(oid):
+			errors.append("S2 %s 既在脊梁上、又挂给了热点 —— 会播两遍。"
+				% oid + "二选一：归剧情的就留在 spine 里，归调查的从 spine 里删掉。")
+		if ambient_scenes.has(oid):
+			errors.append("S2 %s 同时归了 object 和 ambient" % oid)
+
+	# S3 object / ambient 里的都得是真场景，而且都得是**扩写节点**。
+	# 跟 R6 同一条道理：原文节拍归脊梁走，别挂到物件上。
+	for group in [["object", object_scenes], ["ambient", ambient_scenes]]:
+		var gname := str(group[0])
+		for id in (group[1] as Array):
+			var gid := str(id)
+			if not scenes.has(gid):
+				errors.append("S3 %s 表里的 %s 不是真场景" % [gname, gid])
+			elif not (scenes[gid] as Dictionary).has("expansion"):
+				errors.append("S3 %s 表里的 %s 不是扩写节点 —— 原文归脊梁走（会播两遍）"
+					% [gname, gid])
+
+	# S4 object 路由的场景，在 rooms.json 里必须**恰好**有一个热点挂着它。
+	# 零个 = 这段扩写玩家永远看不到（写了等于没写）；
+	# 两个 = 查哪个热点都播同一段，其中一个必然是写错了。
+	for id in object_scenes:
+		var sid := str(id)
+		if not scenes.has(sid):
+			continue
+		var n := 0
+		for rid in rooms:
+			for o in (rooms[rid] as Dictionary).get("objects", []):
+				if o is Dictionary and str((o as Dictionary).get("scene", "")) == sid:
+					n += 1
+		if n == 0:
+			errors.append("S4 %s 归了 object 路由，可是 rooms.json 里没有热点挂它 —— "
+				% sid + "这段扩写玩家永远看不到")
+		elif n > 1:
+			errors.append("S4 %s 被 %d 个热点挂着 —— 查哪一个都播同一段，其中必有一个写错了"
+				% [sid, n])
+
+	# S5（I1 不丢）切片里每个场景恰好被路由一次。
+	# 这条是整套路由的底线：漏一个 = 那段剧情在 RPG 里根本不存在。
+	var missing: Array = []
+	var multi: Array = []
+	for id in slice:
+		var sid := str(id)
+		if not _route_by_scene.has(sid):
+			missing.append(sid)
+	for id in _route_by_scene:
+		if not slice_set.is_empty() and not slice_set.has(str(id)):
+			multi.append(str(id))
+	if not missing.is_empty():
+		errors.append("S5（I1）切片里有 %d 个场景没有任何路由，玩家玩到那儿会卡住：%s"
+			% [missing.size(), ", ".join(missing)])
+	if not multi.is_empty():
+		errors.append("S5（I1）路由表里有不在切片里的场景：%s" % ", ".join(multi))
+
+	# S6（I2 脊梁保序）故事图里每条边 A→B，只要 A、B 都在脊梁上，
+	# A 就必须排在 B 前面。这就是「脊梁保序」——
+	# 它不比对两份清单（那会变成拿我写的东西验我写的东西），
+	# 而是直接问故事图：你自己说下一步该是谁，脊梁有没有听你的。
+	var bad_edges: Array = []
+	for id in spine:
+		var sid := str(id)
+		if not scenes.has(sid):
+			continue
+		for nxt in _story_edges(sid):
+			if not _spine_index.has(nxt):
+				continue   # 分支没选中的那条不在这条线上，不算
+			if spine_index(nxt) <= spine_index(sid):
+				bad_edges.append("%s → %s" % [sid, nxt])
+	if not bad_edges.is_empty():
+		errors.append("S6（I2）脊梁顺序跟故事图对不上，这几条边被排反了：%s"
+			% ", ".join(bad_edges))
+
+	# S7 每一场脊梁戏都得有个去处：要么在某间房里演，要么显式声明走呈现层。
+	# 这条防的是「戏写好了，可是没告诉引擎在哪儿演」——
+	# 那种错在运行期表现为「走到下一场，画面一片空白，也没报错」。
+	var homeless: Array = []
+	for id in spine:
+		var sid := str(id)
+		if not scenes.has(sid) or is_present_scene(sid):
+			continue
+		if scene_rooms.has(sid):
+			var rid := str(scene_rooms[sid])
+			if not rooms.has(rid):
+				errors.append("S7 %s 排给了不存在的房间 %s" % [sid, rid])
+			continue
+		if route_of(sid) == ROUTE_OBJECT:
+			continue   # 房间由热点决定，S4 已经保证挂上了
+		homeless.append(sid)
+	if not homeless.is_empty():
+		errors.append("S7 这几场脊梁戏没说在哪儿演：%s —— "
+			% ", ".join(homeless)
+			+ "要么在 rooms 里给它一间房，要么放进 present（呈现层）")
+
+	# S7 反过来：present 里的场景得是真场景，且不该同时有房间（那就有两个说法了）。
+	for id in present_scenes:
+		var pid := str(id)
+		if not scenes.has(pid):
+			errors.append("S7 present 里的 %s 不是真场景" % pid)
+		elif scene_rooms.has(pid):
+			errors.append("S7 %s 既在 present 里、又排了房间 %s —— 两个说法，运行期不知道该听谁的"
+				% [pid, str(scene_rooms[pid])])
+		elif not is_spine(pid):
+			errors.append("S7 present 里的 %s 不在脊梁上 —— 挂上去也不会被播到" % pid)
+
+	# S7 再反过来：rooms 里排的房间得是真房间，场景得是真场景。
+	for id in scene_rooms:
+		var sid2 := str(id)
+		if not scenes.has(sid2):
+			errors.append("S7 rooms 表里的 %s 不是真场景" % sid2)
+		var rid2 := str(scene_rooms[id])
+		if not rooms.has(rid2):
+			errors.append("S7 rooms 表里 %s 排给了不存在的房间 %s" % [sid2, rid2])
+
+
+## 一个场景在故事图上的出边：next，或者选择场景的全部分支。
+## 只认故事图自己说的，不看 story_map —— 这是 S6 能当预言机的前提。
+func _story_edges(scene_id: String) -> Array:
+	var sc: Dictionary = scenes.get(scene_id, {})
+	if sc.is_empty():
+		return []
+	var nx: Variant = sc.get("next")
+	if nx is String and not (nx as String).is_empty():
+		return [nx]
+	var out: Array = []
+	for b in sc.get("beats", []):
+		if not (b is Dictionary) or str((b as Dictionary).get("t", "")) != "choice":
+			continue
+		for o in (b as Dictionary).get("opts", []):
+			if o is Dictionary:
+				out.append(str((o as Dictionary).get("to", "")))
+	return out
 
 
 func _validate_rooms() -> void:

@@ -22,6 +22,7 @@ const TEST_SCRIPTS := [
 	"res://tests/unit/test_vn_screen.gd",
 	"res://tests/unit/test_title.gd",
 	"res://tests/unit/test_rooms.gd",
+	"res://tests/unit/test_story_map.gd",
 	"res://tests/unit/test_nav.gd",
 	"res://tests/unit/test_room_view.gd",
 	"res://tests/unit/test_note_view.gd",
