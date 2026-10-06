@@ -115,8 +115,8 @@ tests/      极简测试跑架 + unit/
 - [x] **里程碑 1** 导出器 + `data/*.json` + Node 断言 + Godot 数据测试
 - [x] 里程碑 2 `CondEval` / `GameState` / `SaveManager` + 单测
 - [x] 里程碑 3 `BeatRunner` + 对话框 / 选项 / 书信 / 引文 / 章节卡 → 切片当纯 VN 跑通 → 导 Web 挂 Pages（已上线，见「在线试玩」）
-- [ ] 里程碑 4 `Room` + `Player` + 行走遮罩 → 导航 + 交互物
-- [ ] 里程碑 5 `story_map` 路由 + 12 个房间的背景 / 遮罩 / NPC 摆位
+- [x] 里程碑 4 `Room` + `Player` + 行走遮罩 → 导航 + 交互物
+- [x] 里程碑 5 `story_map` 路由 + 12 个房间的背景 / 遮罩 / NPC 摆位 → **完整垂直切片可玩**（已上线，见「在线试玩」）
 - [ ] 里程碑 6 时局图 / 史实注 / 任务栏 / 暂停菜单
 - [ ] 里程碑 7 导出预设（Windows → Web → Android）+ 离线审计
 
